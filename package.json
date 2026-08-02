@@ -1,0 +1,14 @@
+{
+  "name": "coalition-widgets",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy": "node scripts/deploy.mjs",
+    "build": "node embed/build.mjs",
+    "validate": "sam validate --lint --region us-east-1 && uvx cfn-lint template.yaml"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.1"
+  }
+}

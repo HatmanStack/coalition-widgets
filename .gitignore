@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.aws-sam/
+.deploy.json
+.deploy-outputs.json
+__pycache__/
+render-check.mjs

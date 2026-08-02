@@ -1,0 +1,252 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >-
+  Coalition widgets. A Lambda that reads Looker and writes JSON to S3, a CloudFront distribution
+  that serves it, and a CodeBuild project that builds and publishes the embed bundle.
+
+Parameters:
+  LookerBaseUrl:
+    Type: String
+    Description: e.g. https://coalition.cloud.looker.com
+  QuarterlyLookId:
+    Type: String
+    Default: ''
+  LiveLookId:
+    Type: String
+    Default: ''
+  RaceEthnicityLookId:
+    Type: String
+    Default: ''
+  ShelterStatusLookId:
+    Type: String
+    Default: ''
+  ScheduleExpression:
+    Type: String
+    Default: rate(1 day)
+  ScheduleState:
+    Type: String
+    Default: DISABLED
+    AllowedValues: [ENABLED, DISABLED]
+  SourceRepo:
+    Type: String
+    Default: https://github.com/HatmanStack/coalition-widgets
+    Description: CodeBuild clones this to build the bundle.
+
+Resources:
+
+  Bucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 }
+      CorsConfiguration:
+        CorsRules:
+          - AllowedMethods: [GET, HEAD]
+            AllowedOrigins: ['*']
+            AllowedHeaders: ['*']
+
+  OriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub '${AWS::StackName}-oac'
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref Bucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          # Only what is meant to be public, and only through this distribution. A wildcard here
+          # would make anything else in the bucket readable through the CDN as well.
+          - Effect: Allow
+            Principal: { Service: cloudfront.amazonaws.com }
+            Action: s3:GetObject
+            Resource:
+              - !Sub '${Bucket.Arn}/v1/data/*'
+              - !Sub '${Bucket.Arn}/v1/chc.*.js'
+              - !Sub '${Bucket.Arn}/v1/manifest.json'
+            Condition:
+              StringEquals:
+                'AWS:SourceArn': !Sub 'arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${Distribution}'
+
+  CachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Name: !Sub '${AWS::StackName}-origin-decides'
+        # MinTTL 0 is what lets the Cache-Control the publisher and the build write decide edge
+        # lifetime. Raise it and every cache decision upstream silently stops mattering.
+        MinTTL: 0
+        DefaultTTL: 60
+        MaxTTL: 31536000
+        ParametersInCacheKeyAndForwardedToOrigin:
+          EnableAcceptEncodingGzip: true
+          EnableAcceptEncodingBrotli: true
+          HeadersConfig: { HeaderBehavior: none }
+          CookiesConfig: { CookieBehavior: none }
+          QueryStringsConfig: { QueryStringBehavior: none }
+
+  ResponseHeadersPolicy:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties:
+      ResponseHeadersPolicyConfig:
+        Name: !Sub '${AWS::StackName}-cors'
+        CorsConfig:
+          # Origin is deliberately not forwarded. With Allow-Origin * there is nothing to vary
+          # on, and forwarding it without adding it to the cache key causes intermittent CORS
+          # failures.
+          AccessControlAllowOrigins: { Items: ['*'] }
+          AccessControlAllowHeaders: { Items: ['*'] }
+          AccessControlAllowMethods: { Items: [GET, HEAD] }
+          AccessControlAllowCredentials: false
+          AccessControlMaxAgeSec: 86400
+          OriginOverride: true
+        SecurityHeadersConfig:
+          ContentTypeOptions: { Override: true }
+          ReferrerPolicy: { ReferrerPolicy: strict-origin-when-cross-origin, Override: true }
+
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        HttpVersion: http2and3
+        IPV6Enabled: true
+        Origins:
+          - Id: BucketOrigin
+            DomainName: !GetAtt Bucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt OriginAccessControl.Id
+            S3OriginConfig: { OriginAccessIdentity: '' }
+        DefaultCacheBehavior:
+          TargetOriginId: BucketOrigin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD]
+          Compress: true
+          CachePolicyId: !Ref CachePolicy
+          ResponseHeadersPolicyId: !Ref ResponseHeadersPolicy
+
+  LookerCredentials:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Description: Looker client_id and client_secret, as JSON.
+
+  PublisherFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: publisher/
+      Handler: app.handler
+      Runtime: python3.13
+      MemorySize: 256
+      Timeout: 60
+      Architectures: [x86_64]
+      Environment:
+        Variables:
+          BUCKET: !Ref Bucket
+          LOOKER_BASE_URL: !Ref LookerBaseUrl
+          LOOKER_SECRET_ARN: !Ref LookerCredentials
+          QUARTERLY_LOOK_ID: !Ref QuarterlyLookId
+          LIVE_LOOK_ID: !Ref LiveLookId
+          RACEETHNICITY_LOOK_ID: !Ref RaceEthnicityLookId
+          SHELTERSTATUS_LOOK_ID: !Ref ShelterStatusLookId
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action: [s3:PutObject, s3:GetObject]
+              Resource: !Sub '${Bucket.Arn}/v1/data/*'
+            - Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              Resource: !Ref LookerCredentials
+      Events:
+        Scheduled:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: !Ref ScheduleExpression
+            State: !Ref ScheduleState
+
+  PublishFailedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: The publisher refused or crashed and nothing was written.
+      Namespace: CoalitionPublisher
+      MetricName: PublishFailed
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 24
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+
+  # ---- the bundle build -------------------------------------------------------------------
+
+  BundleBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: codebuild.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: build-and-publish
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [logs:CreateLogGroup, logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/*'
+              - Effect: Allow
+                Action: s3:PutObject
+                Resource: !Sub '${Bucket.Arn}/v1/*'
+
+  BundleBuild:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub '${AWS::StackName}-bundle'
+      Description: Builds the IIFE embed bundle and publishes it. No local toolchain needed.
+      ServiceRole: !GetAtt BundleBuildRole.Arn
+      Artifacts: { Type: NO_ARTIFACTS }
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:5.0
+        EnvironmentVariables:
+          - Name: BUCKET
+            Value: !Ref Bucket
+          - Name: DATA_ORIGIN
+            Value: !Sub 'https://${Distribution.DomainName}'
+      Source:
+        Type: GITHUB
+        Location: !Ref SourceRepo
+        BuildSpec: embed/buildspec.yml
+      SourceVersion: main
+      TimeoutInMinutes: 10
+
+Outputs:
+  BucketName:
+    Value: !Ref Bucket
+  DistributionDomainName:
+    Description: The origin baked into the bundle, and the host partners embed from.
+    Value: !GetAtt Distribution.DomainName
+  BundleBuildProject:
+    Value: !Ref BundleBuild
+  LookerSecretArn:
+    Description: Put {"client_id":"...","client_secret":"..."} here.
+    Value: !Ref LookerCredentials

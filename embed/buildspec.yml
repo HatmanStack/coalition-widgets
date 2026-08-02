@@ -1,0 +1,57 @@
+version: 0.2
+
+# CodeBuild builds and publishes the bundle, so nobody needs node, esbuild or AWS credentials on
+# their laptop to change a widget. A pinned image also settles determinism: two developers'
+# machines producing two different hashes would make SRI pinning meaningless.
+#
+# Triggered by source change, never on a schedule. The data refresh is the Lambda's job and runs
+# on its own clock; a build here only happens when the code changes.
+
+env:
+  variables:
+    NODE_VERSION: "22"
+  exported-variables:
+    - BUNDLE_FILE
+    - BUNDLE_INTEGRITY
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 22
+    commands:
+      # `npm ci` and nothing else. It installs exactly the committed lockfile, so the build is
+      # the same on every run and on every machine, which is what makes a hash-named immutable
+      # artifact mean anything.
+      - npm ci
+
+  pre_build:
+    commands:
+      - test -n "$DATA_ORIGIN" || { echo "DATA_ORIGIN is required; it is baked into the bundle"; exit 1; }
+      - test -n "$BUCKET" || { echo "BUCKET is required"; exit 1; }
+      - echo "origin $DATA_ORIGIN"
+
+  build:
+    commands:
+      - node embed/build.mjs --origin "$DATA_ORIGIN"
+      - export BUNDLE_FILE=$(node -e "console.log(require('./dist/manifest.json').file)")
+      - export BUNDLE_INTEGRITY=$(node -e "console.log(require('./dist/manifest.json').integrity)")
+
+  post_build:
+    commands:
+      # The bundle first and immutable, because it is hash-named and can never change under a
+      # partner. The manifest second and short-lived, because it carries the tag people copy.
+      - |
+        aws s3 cp "dist/$(basename $BUNDLE_FILE)" "s3://$BUCKET/$BUNDLE_FILE" \
+          --content-type "text/javascript; charset=utf-8" \
+          --cache-control "public, max-age=31536000, immutable"
+      - |
+        aws s3 cp dist/manifest.json "s3://$BUCKET/v1/manifest.json" \
+          --content-type "application/json; charset=utf-8" \
+          --cache-control "public, max-age=300"
+      - echo "published $BUNDLE_FILE"
+      - node -e "console.log(require('./dist/manifest.json').tag)"
+
+artifacts:
+  base-directory: dist
+  files:
+    - "**/*"
