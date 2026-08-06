@@ -275,7 +275,14 @@ details > summary { cursor: pointer; font-size: .82em; color: var(--chc-ink-2); 
 .group { display: grid; gap: calc(.75rem * var(--chc-scale)); grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
 .group .cell { text-align: center; }
 .group .cell .n { font-size: calc(clamp(1.4rem, 1rem + 2.4cqi, 2.1rem) * var(--chc-scale)); font-weight: 700; line-height: 1; letter-spacing: -.03em; }
-.group .cell .k { font-size: .78em; color: var(--chc-ink-2); line-height: 1.3; margin-top: .3rem; }
+/* overflow-wrap, because a label is the one thing here whose width nobody controls. The cells
+   are minmax(110px, 1fr), so a single word wider than 110px has nowhere to go and spills out of
+   the card — and how wide a word is depends on which fonts the reader has. Locally every one of
+   these measured exactly its cell width, with nothing to spare; on CI, where the system fonts
+   differ, the same labels came out 4px wider and the layout test caught it as a real overflow.
+   Breaking mid-word is ugly and is still the right answer: the alternative is text outside the
+   card on somebody's site. */
+.group .cell .k { font-size: .78em; color: var(--chc-ink-2); line-height: 1.3; margin-top: .3rem; overflow-wrap: anywhere; }
 
 /* Said once, at the foot. */
 .pane-foot { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: .25rem 1rem; justify-content: space-between; align-items: baseline; }
