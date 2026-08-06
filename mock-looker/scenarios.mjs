@@ -416,6 +416,17 @@ export const SCENARIOS = {
       look === "live" ? [{ [F.liveAsOf]: AS_OF, [F.queue]: 42 }] : undefined,
   },
 
+  /* The as-of was the one Looker string the identifier scan skipped, and nothing checked it was
+     a timestamp — so anything the column carried published unread, onto the period line of a
+     partner's page. It is validated for shape now, which is what makes the exemption safe. */
+  "as-of-not-a-timestamp": {
+    why: "the as-of column carrying an identifier instead of an instant",
+    rows: (look) =>
+      look === "measures"
+        ? [{ ...measures()[0], [F.asOf]: "intake.coordinator@example.invalid" }]
+        : undefined,
+  },
+
   "pii-in-label": {
     why: "an email address as a category label; the field name is allowlisted, the value was not",
     rows: (look) =>

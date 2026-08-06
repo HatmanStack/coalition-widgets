@@ -23,6 +23,7 @@ import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, extname } from "node:path";
 import { chromium } from "playwright";
+import { ALLOWED } from "../src/params.js";
 
 const ROOT = new URL("../..", import.meta.url).pathname;
 const PORT = 8129;
@@ -108,14 +109,27 @@ function fixtures() {
   });
 }
 
+/* One refusal case per registered parameter, from the registry rather than typed out.
+ *
+ * They were typed out, and the list had drifted: `data-layout` and `data-titles` are shipped
+ * parameters with no refusal case at all, so nothing asserted that a wrong value on either was
+ * reported rather than quietly swallowed — which is the single promise this whole file exists to
+ * keep. Generated from ALLOWED, a new parameter arrives with its case already written.
+ *
+ * `pit-trend` rather than `active-count` as the carrier, because it is the one widget that
+ * responds to every parameter here, so a case can never pass by rendering something the
+ * parameter does not touch. */
+const PARAM_CASES = Object.keys(ALLOWED).map((attr) => [
+  `bad-${attr.replace(/^data-/, "")}`,
+  "CHC-02",
+  `data-widgets="pit-trend" ${attr}="nonsense"`,
+]);
+
 /* Each case names the code it must produce. `none` means it must render clean. */
 const CASES = [
   ["control-valid", "none", `data-widgets="active-count"`],
-  ["bad-size", "CHC-02", `data-widgets="active-count" data-size="huge"`],
+  ...PARAM_CASES,
   ["bad-years", "CHC-02", `data-widgets="pit-trend" data-years="five"`],
-  ["bad-theme", "CHC-02", `data-widgets="active-count" data-theme="drak"`],
-  ["bad-table", "CHC-02", `data-widgets="active-count" data-table="flase"`],
-  ["bad-variant", "CHC-02", `data-widgets="active-count" data-variant="tiny"`],
   ["no-widgets", "CHC-02", `data-theme="light"`],
   ["bad-selector", "CHC-02", `data-widgets="active-count" data-target="#3col"`],
   ["unknown-widget", "CHC-01", `data-widgets="actve-count"`],
@@ -136,13 +150,11 @@ const CASES = [
   ],
 ];
 
-/* An optional attribute being wrong must not cost the partner their data. */
+/* An optional attribute being wrong must not cost the partner their data. Every parameter case
+   qualifies, by definition: all of them are optional. */
 const MUST_STILL_RENDER = [
-  "bad-size",
+  ...PARAM_CASES.map(([name]) => name),
   "bad-years",
-  "bad-theme",
-  "bad-table",
-  "bad-variant",
   "two-problems",
 ];
 

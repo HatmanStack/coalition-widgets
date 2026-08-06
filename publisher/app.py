@@ -53,6 +53,30 @@ def _number(value, field):
     return value
 
 
+# An as-of, checked for shape rather than only for being a non-empty string.
+#
+# `asOf` is the one Looker-supplied string the identifier scan does not read: it is a timestamp,
+# and a timestamp contains a date, so scanning it would refuse every payload ever published. That
+# exemption is only safe if the value is known to *be* a timestamp — and it was not. `_as_of` and
+# the measures mapper both accepted any non-empty string, so whatever the as-of column happened
+# to carry went out unscanned and unread, onto the period line of a partner's page.
+#
+# So it is validated rather than exempted. A string matching this cannot carry an identifier,
+# which is what earns the exemption in `NOT_FROM_LOOKER`.
+_TIMESTAMP = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+
+
+def _timestamp(value, field, where):
+    if not isinstance(value, str) or not value:
+        raise Refused(f"{where}: {field} is missing, so there would be no as-of")
+    if not _TIMESTAMP.match(value):
+        raise Refused(
+            f"{where}: {field} is {value!r}, which is not an as-of. Expected an ISO 8601 "
+            f"instant in UTC, as in 2026-03-31T23:59:59Z."
+        )
+    return value
+
+
 def _only_named(row, allowed, where):
     """A field nobody asked for is an error, not something to skip over.
 
@@ -78,11 +102,7 @@ def measures_from(rows, spec, cadence):
         {m.field for m in spec["measures"]} | {spec["as_of_field"]},
         f"{cadence} measures",
     )
-    as_of = row.get(spec["as_of_field"])
-    if not isinstance(as_of, str) or not as_of:
-        raise Refused(
-            f"{spec['as_of_field']} is missing; the payload would have no as-of"
-        )
+    as_of = _timestamp(row.get(spec["as_of_field"]), spec["as_of_field"], cadence)
 
     out = {}
     for m in spec["measures"]:
@@ -162,7 +182,8 @@ IDENTIFIERS = (
 NOT_FROM_LOOKER = frozenset(
     {
         "meta",  # written here, and `generated` is a timestamp
-        "asOf",  # a timestamp, and a timestamp contains a date
+        "asOf",  # a timestamp, and a timestamp contains a date. Safe to skip only because
+        #          `_timestamp` has already refused anything that is not one.
     }
 )
 
@@ -344,10 +365,7 @@ def _as_of(rows, spec, look):
     let a series from one refresh sit beside a rate from another with nothing to show it.
     """
     field = spec["as_of_field"]
-    value = rows[0].get(field)
-    if not isinstance(value, str) or not value:
-        raise Refused(f"{look}: {field} is missing, so the block has no as-of")
-    return value
+    return _timestamp(rows[0].get(field), field, look)
 
 
 def series_from(rows, spec, cadence, as_of_field):

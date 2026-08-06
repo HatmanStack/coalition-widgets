@@ -31,6 +31,7 @@ import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, extname } from "node:path";
 import { chromium } from "playwright";
+import { NAMES } from "../src/widgets/index.js";
 
 const ROOT = new URL("../..", import.meta.url).pathname.replace(/\/$/, "");
 const PORT = 8131;
@@ -65,22 +66,12 @@ const COMBOS = [
     name: "composite-plus",
     widgets: "hmis-snapshot,active-count,race-ethnicity",
   },
-  {
-    name: "all-eleven",
-    widgets: [
-      "hmis-snapshot",
-      "active-count",
-      "queue-total",
-      "race-ethnicity",
-      "shelter-status",
-      "pit-trend",
-      "newly-homeless",
-      "inflow-outflow",
-      "alice-gap",
-      "length-of-stay",
-      "retention",
-    ].join(","),
-  },
+  /* Every widget there is, from the catalogue rather than a list typed out here. It was typed
+     out here, and it said eleven while the catalogue said thirteen — so `queue` and `county`
+     were absent from the widest combination the layout suite has, which is the one most likely
+     to overflow. Named for what it is rather than for how many, because a name with a count in
+     it goes stale the same way the list did. */
+  { name: "everything", widgets: NAMES.join(",") },
 ];
 
 const LAYOUTS = ["cards", "dashboard"];

@@ -438,19 +438,10 @@ const tag = (layout, widgets) =>
 /* All eleven, always. This used to list the five that had data, which made a page showing five
    of eleven look like the complete set — the same silent narrowing the bundle's error codes
    exist to prevent. If a widget cannot render, its card says so and that is the useful signal. */
-const ALL_WIDGETS = [
-  "hmis-snapshot",
-  "active-count",
-  "queue-total",
-  "race-ethnicity",
-  "shelter-status",
-  "pit-trend",
-  "newly-homeless",
-  "inflow-outflow",
-  "alice-gap",
-  "length-of-stay",
-  "retention",
-].join(",");
+// From the manifest the build just published, not a list kept here. The list kept here had gone
+// stale at eleven, so the page this writes to prove a deploy omitted the two newest widgets —
+// exactly the two most likely to be broken by it.
+const ALL_WIDGETS = (manifest.widgets || []).join(",");
 
 writeFileSync(
   page,
