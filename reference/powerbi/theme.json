@@ -1,0 +1,136 @@
+{
+  "name": "Coalition to End Homelessness",
+  "dataColors": [
+    "#0044B5",
+    "#EB6834",
+    "#1BAF7A",
+    "#EDA100",
+    "#E87BA4",
+    "#4A3AA7",
+    "#008300",
+    "#E34948"
+  ],
+  "background": "#FAFBFD",
+  "foreground": "#12161F",
+  "tableAccent": "#0044B5",
+  "good": "#0CA30C",
+  "neutral": "#767E90",
+  "bad": "#D03B3B",
+  "maximum": "#0044B5",
+  "center": "#86B6EF",
+  "minimum": "#E2E6EF",
+  "textClasses": {
+    "title": {
+      "fontFace": "Segoe UI Semibold",
+      "fontSize": 13,
+      "color": "#12161F"
+    },
+    "header": {
+      "fontFace": "Segoe UI Semibold",
+      "fontSize": 12,
+      "color": "#12161F"
+    },
+    "label": {
+      "fontFace": "Segoe UI",
+      "fontSize": 10,
+      "color": "#4A5265"
+    },
+    "callout": {
+      "fontFace": "Segoe UI Bold",
+      "fontSize": 32,
+      "color": "#12161F"
+    }
+  },
+  "visualStyles": {
+    "*": {
+      "*": {
+        "title": [
+          {
+            "show": true,
+            "alignment": "left",
+            "fontColor": { "solid": { "color": "#12161F" } },
+            "fontSize": 13,
+            "background": { "solid": { "color": "#00000000" } }
+          }
+        ],
+        "background": [
+          { "show": true, "color": { "solid": { "color": "#FFFFFF" } }, "transparency": 0 }
+        ],
+        "border": [{ "show": false }],
+        "visualHeader": [{ "show": false }],
+        "dropShadow": [{ "show": false }],
+        "legend": [
+          {
+            "show": true,
+            "position": "Top",
+            "showTitle": false,
+            "fontSize": 10,
+            "labelColor": { "solid": { "color": "#4A5265" } }
+          }
+        ],
+        "categoryAxis": [
+          {
+            "show": true,
+            "showAxisTitle": false,
+            "fontSize": 10,
+            "labelColor": { "solid": { "color": "#767E90" } },
+            "gridlineShow": false
+          }
+        ],
+        "valueAxis": [
+          {
+            "show": true,
+            "showAxisTitle": false,
+            "fontSize": 10,
+            "labelColor": { "solid": { "color": "#767E90" } },
+            "gridlineShow": true,
+            "gridlineColor": { "solid": { "color": "#E2E6EF" } },
+            "gridlineThickness": 1,
+            "gridlineStyle": "solid"
+          }
+        ],
+        "labels": [
+          {
+            "show": true,
+            "fontSize": 10,
+            "color": { "solid": { "color": "#12161F" } }
+          }
+        ]
+      }
+    },
+    "card": {
+      "*": {
+        "labels": [
+          {
+            "fontSize": 32,
+            "color": { "solid": { "color": "#12161F" } },
+            "fontFamily": "Segoe UI Bold"
+          }
+        ],
+        "categoryLabels": [
+          {
+            "show": true,
+            "fontSize": 10,
+            "color": { "solid": { "color": "#4A5265" } }
+          }
+        ]
+      }
+    },
+    "barChart": {
+      "*": {
+        "categoryAxis": [{ "gridlineShow": false }],
+        "labels": [{ "show": true }]
+      }
+    },
+    "columnChart": {
+      "*": {
+        "labels": [{ "show": true }]
+      }
+    },
+    "pieChart": {
+      "*": {
+        "legend": [{ "show": true, "position": "Right" }]
+      }
+    }
+  }
+}

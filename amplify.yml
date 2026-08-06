@@ -1,0 +1,110 @@
+version: 1
+applications:
+  # Monorepo format. The Amplify console app must have its app root directory
+  # set to `site`, otherwise the build fails with "Monorepo spec provided
+  # without 'applications' key" or matches no application.
+  - appRoot: site
+    frontend:
+      phases:
+        build:
+          commands:
+            - echo "Static site, nothing to build."
+      artifacts:
+        baseDirectory: /
+        files:
+          - index.html
+          - dashboard.html
+      cache:
+        paths: []
+
+    customHeaders:
+      - pattern: "**"
+        headers:
+          - key: X-Content-Type-Options
+            value: nosniff
+          - key: Referrer-Policy
+            value: strict-origin-when-cross-origin
+          - key: Permissions-Policy
+            value: geolocation=(), camera=(), microphone=(), interest-cohort=()
+          - key: Strict-Transport-Security
+            value: max-age=31536000; includeSubDomains
+          # The page loads zero external resources. Inline style/script are the
+          # page's own; 'unsafe-inline' is required for them because there is no
+          # build step to hash. img-src data: covers the inline SVG favicon.
+          - key: Content-Security-Policy
+            value: >-
+              default-src 'none';
+              style-src 'unsafe-inline';
+              script-src 'unsafe-inline';
+              img-src 'self' data:;
+              base-uri 'none';
+              form-action 'none';
+              frame-ancestors 'none'
+      - pattern: "/*.html"
+        headers:
+          - key: Cache-Control
+            value: public, max-age=0, must-revalidate
+
+  # The site partners are given: what the widgets are, and a builder that assembles the tag.
+  # A second Amplify app pointed at this same repo with its app root set to `web`.
+  #
+  # It hosts pages and nothing else. The bundle, the manifest, the figures and llm.txt are
+  # served by the CloudFront distribution in template.yaml, and this site loads them from there
+  # exactly as a partner's own site will — which is the point: the preview on the builder is the
+  # real bundle reading the real data over the real network, not a mock of it.
+  - appRoot: web
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            - npm ci
+        build:
+          # VITE_WIDGET_ORIGIN comes from .env.production. Set it in the Amplify console instead
+          # if this app is ever pointed at a different distribution.
+          commands:
+            - npm run build
+      artifacts:
+        baseDirectory: dist
+        files:
+          - "**/*"
+      cache:
+        paths:
+          - node_modules/**/*
+
+    customHeaders:
+      - pattern: "**"
+        headers:
+          - key: X-Content-Type-Options
+            value: nosniff
+          - key: Referrer-Policy
+            value: strict-origin-when-cross-origin
+          - key: Permissions-Policy
+            value: geolocation=(), camera=(), microphone=(), interest-cohort=()
+          - key: Strict-Transport-Security
+            value: max-age=31536000; includeSubDomains
+          # Unlike the site above, this one deliberately loads something external: the widget
+          # bundle, from the distribution that serves it. `script-src` lets it load and
+          # `connect-src` lets it fetch the figures — omit either and the page renders with
+          # every widget missing and nothing on it to say why, which is the failure this whole
+          # project is built to avoid. The distribution is named explicitly rather than allowed
+          # by wildcard: one fixed address is exactly what a partner has to allow on their own
+          # site, so this is the same promise being kept here.
+          - key: Content-Security-Policy
+            value: >-
+              default-src 'none';
+              style-src 'unsafe-inline';
+              script-src 'self' https://d2s2vi2gd7olxb.cloudfront.net;
+              connect-src https://d2s2vi2gd7olxb.cloudfront.net;
+              img-src 'self' data:;
+              base-uri 'none';
+              form-action 'none';
+              frame-ancestors 'none'
+      - pattern: "/index.html"
+        headers:
+          - key: Cache-Control
+            value: public, max-age=0, must-revalidate
+      # Vite fingerprints these, so they can be cached hard and for a long time.
+      - pattern: "/assets/**"
+        headers:
+          - key: Cache-Control
+            value: public, max-age=31536000, immutable

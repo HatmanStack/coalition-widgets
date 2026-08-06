@@ -1,0 +1,378 @@
+/* Carried over from the page this replaces, so the site a partner already had a link to did not
+   change its appearance the day it became a React app. */
+
+:root {
+  --ink: #12161f;
+  --ink2: #4a5265;
+  --muted: #767e90;
+  --line: #e2e6ef;
+  --bg: #f4f6fa;
+  --s1: #0044b5;
+  --s2: #eb6834;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font:
+    17px/1.6 ui-sans-serif,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  margin: 0;
+}
+
+.wrap {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 0 20px 72px;
+}
+.wrap.wide {
+  max-width: 1180px;
+}
+
+h1 {
+  font-size: clamp(1.7rem, 1.4rem + 1.4vw, 2.4rem);
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  margin: 0 0 0.4em;
+}
+h2 {
+  font-size: 1.3rem;
+  letter-spacing: -0.02em;
+  margin: 2.4em 0 0.5em;
+}
+h3 {
+  font-size: 1.05rem;
+  margin: 1.6em 0 0.3em;
+}
+p {
+  margin: 0 0 1em;
+  color: var(--ink2);
+  max-width: 68ch;
+}
+.lede {
+  font-size: 1.12rem;
+  color: var(--ink2);
+}
+
+header.masthead {
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+  padding: 26px 0 20px;
+  margin-bottom: 8px;
+}
+/* `.wrap` carries 72px of bottom padding to keep page content clear of the footer, and the
+   masthead uses the same class only to get the centring and the gutters. Inherited here it put
+   72px of empty white under the nav — the tabs sat 111px above the content they switch between,
+   which read as a rendering fault rather than as spacing. */
+header.masthead .wrap {
+  padding-bottom: 0;
+}
+
+nav.tabs {
+  display: flex;
+  gap: 4px;
+  margin: 18px 0 0;
+}
+nav.tabs a {
+  font: inherit;
+  font-size: 0.95rem;
+  text-decoration: none;
+  color: var(--ink2);
+  padding: 7px 14px;
+  border-radius: 7px;
+}
+nav.tabs a:hover {
+  background: #eef1f7;
+  color: var(--ink);
+}
+nav.tabs a[aria-current="page"] {
+  background: var(--s1);
+  color: #fff;
+}
+
+.banner {
+  background: #fff4e5;
+  border-left: 4px solid var(--s2);
+  padding: 14px 18px;
+  margin: 0 0 28px;
+  border-radius: 0 8px 8px 0;
+  font-size: 0.95rem;
+  color: #5a3a12;
+}
+.banner.bad {
+  background: #fdecec;
+  border-left-color: #c0392b;
+  color: #6b1f16;
+}
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.88em;
+  background: #eef1f7;
+  padding: 0.12em 0.4em;
+  border-radius: 4px;
+}
+pre {
+  background: #12161f;
+  color: #e6e9ef;
+  padding: 16px 18px;
+  border-radius: 8px;
+  overflow-x: auto;
+  font:
+    13px/1.7 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  position: relative;
+}
+pre code {
+  background: none;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+}
+button.copy {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font: inherit;
+  font-size: 12px;
+  padding: 5px 12px;
+  border: 1px solid #39414f;
+  background: #1c212b;
+  color: #e6e9ef;
+  border-radius: 6px;
+  cursor: pointer;
+}
+button.copy:hover {
+  background: #262d3a;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.95rem;
+  margin: 0 0 1em;
+}
+th,
+td {
+  text-align: left;
+  padding: 0.5rem 0.8rem 0.5rem 0;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+th {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+ol {
+  color: var(--ink2);
+  max-width: 68ch;
+  padding-left: 1.2em;
+}
+ol li {
+  margin-bottom: 0.6em;
+}
+
+.sample,
+.contact,
+.panel {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 20px;
+  margin: 0 0 20px;
+}
+.sample > .cap {
+  font:
+    12px ui-monospace,
+    Menlo,
+    monospace;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+.contact {
+  padding: 18px 20px;
+  margin-bottom: 16px;
+}
+.contact b {
+  display: block;
+  margin-bottom: 0.2em;
+}
+.contact p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+/* ---- the widget catalogue --------------------------------------------------------------- */
+
+/* One grid for the whole catalogue, with each group subgridded into it, so the name column is
+   sized once against the longest name anywhere in it. Each group as its own grid computed its
+   own `max-content`, and the descriptions in the two-widget group started 26px left of the rest.
+   Subgrid rather than a fixed width because the widest name is whatever the catalogue happens to
+   hold, and a magic number goes wrong the first time a longer widget is added. */
+.catalogue {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  margin: 0 0 1.5em;
+}
+.catalogue section {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+}
+.catalogue section + section {
+  margin-top: 26px;
+}
+.catalogue h3 {
+  grid-column: 1 / -1;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin: 0 0 2px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.catalogue dl {
+  display: grid;
+  /* The name column is sized by the parent grid, so `length-of-stay` stops breaking across two
+     lines and every row settles to one. That wrapping was what made the old table look ragged. */
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+  gap: 0 20px;
+  margin: 0;
+  align-items: baseline;
+}
+.catalogue dt {
+  padding: 11px 0 0;
+}
+.catalogue dt code {
+  white-space: nowrap;
+  background: #eaeffa;
+  color: #103a86;
+  font-size: 0.84em;
+}
+.catalogue dd {
+  margin: 0;
+  padding: 11px 0 0;
+  color: var(--ink2);
+  font-size: 0.97rem;
+}
+@media (max-width: 620px) {
+  .catalogue dl {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .catalogue dd {
+    padding: 2px 0 10px;
+  }
+}
+
+footer {
+  border-top: 1px solid var(--line);
+  margin-top: 48px;
+  padding-top: 20px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+/* ---- builder ---------------------------------------------------------------------------- */
+
+.builder {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) 1fr;
+  gap: 24px;
+  align-items: start;
+}
+@media (max-width: 780px) {
+  .builder {
+    grid-template-columns: 1fr;
+  }
+}
+
+fieldset {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  padding: 14px 16px 16px;
+  margin: 0 0 16px;
+}
+legend {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  padding: 0 6px;
+}
+fieldset label.check {
+  display: block;
+  font-size: 0.95rem;
+  margin: 0 0 2px;
+  color: var(--ink);
+}
+.params {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 10px;
+  align-items: center;
+}
+.params label {
+  font-size: 0.9rem;
+  color: var(--ink2);
+}
+select {
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+  width: 100%;
+}
+
+.stage {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px;
+  background: #fff;
+  overflow-x: auto;
+}
+.stage.onDark {
+  background: #14161a;
+}
+.widthbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  margin: 0 0 12px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.widthbar button {
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 5px 11px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink2);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.widthbar button[aria-pressed="true"] {
+  background: var(--s1);
+  border-color: var(--s1);
+  color: #fff;
+}

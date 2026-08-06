@@ -1,0 +1,180 @@
+{
+  "meta": {
+    "schemaVersion": 1,
+    "generated": "2026-08-01T14:04:00Z",
+    "cadence": "annual",
+    "source": "Coalition HMIS via Looker",
+    "attribution": "Coalition to End Homelessness, Wichita and Sedgwick County",
+    "disclaimer": "Unaffiliated concept work. Not produced, authorised or endorsed by United Way of the Plains or the Coalition to End Homelessness.",
+    "minBundle": 1
+  },
+  "measures": {
+    "inflow": {
+      "value": 3577,
+      "segments": { "veterans": 197 },
+      "asOf": "2025-12-31T23:59:59Z",
+      "cadence": "annual",
+      "precision": "exact",
+      "kind": "count"
+    },
+    "outflow": {
+      "value": 3358,
+      "segments": { "veterans": 205 },
+      "asOf": "2025-12-31T23:59:59Z",
+      "cadence": "annual",
+      "precision": "exact",
+      "kind": "count"
+    },
+    "peopleServed": {
+      "value": 5082,
+      "asOf": "2025-12-31T23:59:59Z",
+      "cadence": "annual",
+      "precision": "exact",
+      "kind": "count"
+    },
+    "servicesDelivered": {
+      "value": 84079,
+      "asOf": "2025-12-31T23:59:59Z",
+      "cadence": "annual",
+      "precision": "exact",
+      "kind": "count"
+    },
+    "positiveHousingExits": {
+      "value": 1360,
+      "asOf": "2025-12-31T23:59:59Z",
+      "cadence": "annual",
+      "precision": "exact",
+      "kind": "count"
+    },
+    "peopleReviewedAtCaseConferencing": {
+      "value": 565,
+      "asOf": "2025-12-31T23:59:59Z",
+      "cadence": "annual",
+      "precision": "exact",
+      "kind": "count"
+    },
+    "housingRetentionTwoYears": {
+      "value": 82,
+      "asOf": "2025-12-31T23:59:59Z",
+      "cadence": "annual",
+      "precision": "exact",
+      "kind": "percent"
+    },
+    "averageDaysHomeless": {
+      "value": 51,
+      "asOf": "2025-12-31T23:59:59Z",
+      "cadence": "annual",
+      "precision": "exact",
+      "kind": "average"
+    },
+    "nationalAverageDaysHomeless": {
+      "value": 176,
+      "asOf": "2024-12-31T23:59:59Z",
+      "cadence": "annual",
+      "precision": "exact",
+      "kind": "average"
+    },
+    "aliceHouseholdsBelowThreshold": {
+      "value": 80224,
+      "asOf": "2024-12-31T23:59:59Z",
+      "cadence": "annual",
+      "precision": "exact",
+      "kind": "count"
+    },
+    "aliceHouseholdsAboveThreshold": {
+      "value": 130892,
+      "asOf": "2024-12-31T23:59:59Z",
+      "cadence": "annual",
+      "precision": "exact",
+      "kind": "count"
+    },
+    "medianHouseholdIncome": {
+      "value": 70833,
+      "asOf": "2024-12-31T23:59:59Z",
+      "cadence": "annual",
+      "precision": "exact",
+      "kind": "currency"
+    },
+    "survivalBudgetFamilyOfFour": {
+      "value": 76512,
+      "asOf": "2024-12-31T23:59:59Z",
+      "cadence": "annual",
+      "precision": "exact",
+      "kind": "currency"
+    },
+    "stabilityBudgetFamilyOfFour": {
+      "value": 128124,
+      "asOf": "2024-12-31T23:59:59Z",
+      "cadence": "annual",
+      "precision": "exact",
+      "kind": "currency"
+    }
+  },
+  "series": {
+    "pitCount": {
+      "asOf": "2026-01-29",
+      "cadence": "annual",
+      "precision": "exact",
+      "kind": "count",
+      "points": [
+        { "label": "2022", "value": 690 },
+        { "label": "2023", "unavailable": true },
+        {
+          "label": "2024",
+          "value": 691,
+          "components": { "sheltered": 503, "unsheltered": 188 }
+        },
+        {
+          "label": "2025",
+          "value": 736,
+          "components": { "sheltered": 541, "unsheltered": 195 }
+        },
+        {
+          "label": "2026",
+          "value": 859,
+          "components": { "sheltered": 637, "unsheltered": 222 }
+        }
+      ]
+    },
+    "newlyHomelessHouseholds": {
+      "asOf": "2025-12-31T23:59:59Z",
+      "cadence": "annual",
+      "precision": "exact",
+      "kind": "count",
+      "points": [
+        { "label": "2020", "value": 841 },
+        { "label": "2021", "value": 1086 },
+        { "label": "2022", "value": 1649 },
+        { "label": "2023", "value": 1430 },
+        { "label": "2024", "value": 1742 },
+        { "label": "2025", "value": 2077 }
+      ]
+    },
+    "disablingConditionAtIntake": {
+      "asOf": "2025-12-31T23:59:59Z",
+      "cadence": "annual",
+      "precision": "exact",
+      "kind": "percent",
+      "points": [
+        { "label": "2023", "value": 54 },
+        { "label": "2024", "value": 49 },
+        { "label": "2025", "value": 45 }
+      ]
+    }
+  },
+  "breakdowns": {
+    "aliceThreshold": {
+      "asOf": "2024-12-31T23:59:59Z",
+      "cadence": "annual",
+      "precision": "exact",
+      "kind": "count",
+      "universe": 80224,
+      "minCell": 5,
+      "categories": [
+        { "label": "Poverty", "value": 27445 },
+        { "label": "ALICE", "value": 52779 }
+      ],
+      "suppressed": { "count": 0, "value": 0 }
+    }
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "meta": {
+    "schemaVersion": 1,
+    "generated": "2026-08-01T14:04:00Z",
+    "cadence": "quarterly",
+    "source": "Coalition HMIS via Looker",
+    "attribution": "Coalition to End Homelessness, Wichita and Sedgwick County",
+    "disclaimer": "Unaffiliated concept work. Not produced, authorised or endorsed by United Way of the Plains or the Coalition to End Homelessness.",
+    "minBundle": 1
+  },
+  "measures": {
+    "activelyHomeless": {
+      "value": 1263,
+      "asOf": "2026-03-31T23:59:59Z",
+      "cadence": "quarterly",
+      "precision": "exact",
+      "kind": "count"
+    }
+  },
+  "breakdowns": {
+    "raceEthnicity": {
+      "asOf": "2026-03-31T23:59:59Z",
+      "cadence": "quarterly",
+      "precision": "exact",
+      "kind": "count",
+      "universe": 2905,
+      "minCell": 5,
+      "categories": [
+        { "label": "White", "value": 679 },
+        { "label": "Black or African American", "value": 343 },
+        { "label": "Multi-racial", "value": 142 }
+      ],
+      "residual": { "label": "All other categories", "value": 1741 },
+      "suppressed": { "count": 0, "value": 0 }
+    }
+  }
+}

@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>widget harness</title>
+    <style>
+      /* Deliberately opinionated and ugly in places. This page's CSS should never reach a widget —
+     they live in shadow roots with their own adopted stylesheet — so anything that leaks in is
+     a bug worth seeing immediately. */
+      :root {
+        --ink: #16181d;
+        --line: #d8dce4;
+        --bg: #f4f6f9;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font:
+          15px/1.5 ui-sans-serif,
+          system-ui,
+          sans-serif;
+        color: var(--ink);
+        background: var(--bg);
+        margin: 0;
+      }
+      header {
+        background: #fff;
+        border-bottom: 1px solid var(--line);
+        padding: 16px 20px;
+      }
+      h1 {
+        font-size: 15px;
+        margin: 0 0 12px;
+        letter-spacing: 0.01em;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 18px;
+        align-items: flex-start;
+      }
+      fieldset {
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 8px 12px 10px;
+        margin: 0;
+      }
+      legend {
+        font:
+          600 10px ui-monospace,
+          monospace;
+        text-transform: uppercase;
+        color: #6b7280;
+        padding: 0 4px;
+      }
+      label {
+        display: block;
+        font-size: 13px;
+      }
+      .widgets {
+        columns: 2;
+        column-gap: 20px;
+      }
+      .widgets label {
+        break-inside: avoid;
+      }
+      select,
+      input[type="number"],
+      input[type="text"] {
+        font: inherit;
+        font-size: 13px;
+        padding: 3px 5px;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+      }
+      button {
+        font: inherit;
+        font-weight: 600;
+        padding: 7px 16px;
+        border: 0;
+        border-radius: 6px;
+        background: var(--ink);
+        color: #fff;
+        cursor: pointer;
+      }
+      button.ghost {
+        background: #fff;
+        color: var(--ink);
+        border: 1px solid var(--line);
+        font-weight: 400;
+      }
+      .tag {
+        margin-top: 12px;
+      }
+      .tag code {
+        display: block;
+        white-space: pre-wrap;
+        word-break: break-all;
+        font:
+          12px/1.55 ui-monospace,
+          SFMono-Regular,
+          monospace;
+        background: #16181d;
+        color: #e6e9ef;
+        padding: 10px 12px;
+        border-radius: 6px;
+      }
+      .tag .row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 6px;
+      }
+      .tag .row span {
+        font:
+          600 10px ui-monospace,
+          monospace;
+        text-transform: uppercase;
+        color: #6b7280;
+      }
+
+      main {
+        padding: 20px;
+        display: grid;
+        gap: 20px;
+        grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+        align-items: start;
+      }
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        overflow: hidden;
+        background: #fff;
+      }
+      .panel > h2 {
+        font:
+          600 10px ui-monospace,
+          monospace;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #6b7280;
+        margin: 0;
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--line);
+        background: #fbfcfd;
+      }
+      .stage {
+        padding: 16px;
+      }
+
+      /* Each stage is a different environment. Theme is measured from the nearest opaque ancestor
+     background and every breakpoint is a container query, so these are the two things that
+     cannot be checked by looking at one page on one background. */
+      .stage.light {
+        background: #ffffff;
+      }
+      .stage.paper {
+        background: #f7f3ea;
+      }
+      .stage.dark {
+        background: #14161a;
+      }
+      .stage.navy {
+        background: #0f1e3d;
+      }
+      /* No padding on the sized stages, so the number in the caption is the width the widget
+         actually measures. With the usual 16px each side, a stage labelled 240px handed the
+         widget 208 and it refused — the harness was lying about the one thing it exists to
+         check. `floor` and `pinched` sit either side of MIN_WIDTH on purpose. */
+      /* One rule for every sized stage; the number itself comes from STAGES and is set inline.
+         A class per width meant adding a width meant editing CSS, and the widths that mattered
+         most — the ones partners actually have — lived on a second page because of it. */
+      .stage.sized {
+        background: #ffffff;
+        padding: 0;
+      }
+      .stage.sized.onDark {
+        background: #14161a;
+      }
+      .panel.wide {
+        grid-column: 1 / -1;
+      }
+      /* A stage wider than the viewport scrolls inside its own panel rather than pushing the
+         page sideways. 1600px is a real dashboard width and this page is not always that wide. */
+      .panel.wide .stage {
+        overflow-x: auto;
+      }
+      .stage.transparent {
+        background: transparent;
+      }
+      .appearance {
+        display: grid;
+        grid-template-columns: auto auto;
+        gap: 6px 10px;
+        align-items: center;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>
+        Widget harness — the same tag, dropped into different environments
+      </h1>
+
+      <div class="controls">
+        <fieldset>
+          <legend>data-widgets</legend>
+          <div class="widgets" id="widgets"></div>
+          <div style="margin-top: 6px">
+            <button class="ghost" type="button" id="all">all</button>
+            <button class="ghost" type="button" id="none">none</button>
+            <select id="preset" style="margin-left: 6px">
+              <option value="">preset…</option>
+            </select>
+          </div>
+        </fieldset>
+
+        <!-- One control per shipped parameter, generated from the manifest at load. Hand-listed,
+             this fieldset had selects for four of the six: `data-layout` existed only on a
+             separate gallery page and `data-titles` was reachable from nowhere at all. -->
+        <fieldset>
+          <legend>appearance</legend>
+          <div class="appearance" id="appearance"></div>
+        </fieldset>
+      </div>
+
+      <div class="tag">
+        <div class="row">
+          <span>the tag a partner would paste</span
+          ><button class="ghost" type="button" id="copy">copy</button>
+        </div>
+        <code id="snippet">…</code>
+      </div>
+    </header>
+
+    <main id="stages"></main>
+
+    <script type="module">
+      const $ = (id) => document.getElementById(id);
+
+      /* Everything this page enumerates comes from the manifest, which build.mjs writes from the
+         same `ALLOWED` and `NAMES` the bundle itself enforces. Both lists used to be typed out
+         here and both had drifted: eleven widget checkboxes against a catalogue of thirteen, and
+         four selects against six parameters. */
+      const manifest = await (await fetch("/manifest.json")).json();
+      const NAMES = manifest.widgets;
+      const PARAMS = manifest.params;
+
+      /* Two axes, on one page.
+       *
+       * The first five vary the environment and hold the width: theme is measured from the
+       * nearest opaque ancestor rather than declared, so `transparent` — a stage with no
+       * background of its own, which makes the widget walk further up the tree — is the case
+       * most likely to be wrong.
+       *
+       * The rest vary the width and hold the environment. The numbers are content widths, so
+       * they already exclude a host page's own padding, and they are the widths partners
+       * actually have rather than round ones: 343 is a 375px phone less 16px either side. These
+       * came from a separate gallery page, where they could not be combined with any of the
+       * parameters above — which is the whole reason for folding it in here.
+       *
+       * No padding on a sized stage, so the number in its caption is the width the widget
+       * measures. At the usual 16px each side a stage labelled 240 hands over 208.
+       */
+      const STAGES = [
+        { cls: "light", caption: "white page" },
+        { cls: "paper", caption: "warm off-white" },
+        { cls: "dark", caption: "dark page" },
+        { cls: "navy", caption: "dark, strongly tinted" },
+        { cls: "transparent", caption: "no background of its own" },
+
+        { width: 239, caption: "239px — one under the floor, must refuse" },
+        { width: 240, caption: "240px — exactly the floor, renders" },
+        {
+          width: 300,
+          caption: "300px — blog sidebar, the narrowest sensible place",
+        },
+        { width: 343, caption: "343px — phone in the flow of a page" },
+        { width: 480, caption: "480px — half of a two-column layout" },
+        { width: 680, caption: "680px — article column, a prose measure" },
+        {
+          width: 680,
+          caption: "680px on a dark page — theme at a real width",
+          dark: true,
+        },
+        {
+          width: 1120,
+          caption: "1120px — full-width page section",
+          wide: true,
+        },
+        { width: 1600, caption: "1600px — wide dashboard", wide: true },
+        { cls: "light", caption: "full width of this window", wide: true },
+      ];
+
+      /* Combinations worth looking at, carried over from the gallery. Editorial, not a registry —
+         these are judgements about what a partner would plausibly put together, and there is no
+         list anywhere else to derive them from. They are checked against the catalogue below, so
+         a preset naming a widget that no longer exists says so instead of quietly doing nothing. */
+      const PRESETS = [
+        ["a single figure", "active-count"],
+        ["two figures", "active-count,queue-total"],
+        ["a chart alone", "race-ethnicity"],
+        ["three, stacked", "active-count,queue-total,retention"],
+        ["the composite", "hmis-snapshot"],
+        ["a comparison", "alice-gap"],
+        ["figure plus chart", "active-count,pit-trend"],
+        ["the pair most partners want", "active-count,race-ethnicity"],
+        ["the functional-zero story", "inflow-outflow,pit-trend"],
+        ["demographics", "race-ethnicity,shelter-status"],
+        ["comparison pair", "alice-gap,length-of-stay"],
+        ["charts", "pit-trend,newly-homeless,inflow-outflow"],
+        ["everything", NAMES.join(",")],
+      ];
+
+      const boxes = new Map();
+
+      for (const name of NAMES) {
+        const label = document.createElement("label");
+        const input = Object.assign(document.createElement("input"), {
+          type: "checkbox",
+        });
+        input.checked = name === "hmis-snapshot";
+        // Ticking a widget must remount. Without this the checkboxes changed the copyable tag
+        // and nothing else, so the page showed one set of widgets while claiming another.
+        input.onchange = () => mount();
+        label.append(input, ` ${name}`);
+        $("widgets").append(label);
+        boxes.set(name, input);
+      }
+      const setAll = (on) => {
+        boxes.forEach((b) => (b.checked = on));
+        mount();
+      };
+      $("all").onclick = () => setAll(true);
+      $("none").onclick = () => setAll(false);
+
+      for (const [label, widgets] of PRESETS) {
+        const missing = widgets.split(",").filter((w) => !boxes.has(w));
+        const option = document.createElement("option");
+        option.value = widgets;
+        option.textContent = missing.length
+          ? `${label} — names no such widget: ${missing.join(", ")}`
+          : label;
+        option.disabled = missing.length > 0;
+        $("preset").append(option);
+      }
+      $("preset").onchange = (e) => {
+        if (!e.target.value) return;
+        const wanted = new Set(e.target.value.split(","));
+        boxes.forEach((b, name) => (b.checked = wanted.has(name)));
+        mount();
+      };
+
+      /* One select per parameter, in the order the registry lists them. The first option is the
+         attribute being absent, which is not the same as `auto` — several parameters have an
+         explicit `auto` value and a partner who writes it out has said something different from
+         a partner who omitted it. The last is a value that is not in the list at all, so the
+         refusal path is one click away on every parameter rather than on the one that happened
+         to have a checkbox wired to it. */
+      for (const [attr, values] of Object.entries(PARAMS)) {
+        const label = document.createElement("label");
+        label.textContent = attr.replace(/^data-/, "");
+        const select = document.createElement("select");
+        select.dataset.attr = attr;
+        select.onchange = () => mount();
+        for (const [value, text] of [
+          ["", "— not set"],
+          ...values.map((v) => [v, v]),
+          ["invalid", "invalid — must refuse"],
+        ]) {
+          const option = document.createElement("option");
+          option.value = value;
+          option.textContent = text;
+          select.append(option);
+        }
+        $("appearance").append(label, select);
+      }
+
+      function attrs() {
+        const chosen = [...boxes].filter(([, b]) => b.checked).map(([n]) => n);
+        const a = { "data-widgets": chosen.join(",") };
+        /* Every generated select, by the attribute it carries. An empty value means the partner
+           did not write the attribute, so nothing is emitted for it.
+
+           `data-years`, `data-segment` and `data-target` have no control here. They take free
+           text rather than a value from the registry, so each needed an input of its own and a
+           handler of its own, and none of them could be generated. Their wrong-value paths are
+           asserted in `errors.mjs` — `bad-years` and `bad-segment` and `target-missing` — which
+           is where they were being checked anyway. `data-target` never made sense on this page
+           regardless: fifteen stages aiming at one selector is not a thing a partner can do. */
+        for (const select of document.querySelectorAll("#appearance select")) {
+          if (select.value) a[select.dataset.attr] = select.value;
+        }
+        return a;
+      }
+
+      /* The real src, not `https://<distribution>/…`. The placeholder made the one thing on this
+         page that exists to be copied the one thing that could not be pasted and work — you had
+         to know what to substitute, which is exactly what the tag is meant to save anybody from.
+         `manifest.origin` is the origin this bundle was built for, so the same tag the generated
+         help page carries is the tag shown here. */
+      function snippet(a) {
+        const lines = Object.entries(a).map(([k, v]) => `        ${k}="${v}"`);
+        return `<script src="${manifest.origin}/${manifest.file}"
+        integrity="${manifest.integrity}"
+        crossorigin="anonymous" defer
+${lines.join("\n")}><\/script>`;
+      }
+
+      function mount() {
+        const a = attrs();
+        $("snippet").textContent = snippet(a);
+
+        const main = $("stages");
+        main.replaceChildren();
+
+        for (const stageSpec of STAGES) {
+          const { cls = "", caption, width, wide, dark } = stageSpec;
+          const panel = document.createElement("div");
+          panel.className = wide ? "panel wide" : "panel";
+          const h2 = document.createElement("h2");
+          h2.textContent = caption;
+          const stage = document.createElement("div");
+          stage.className = width
+            ? `stage sized${dark ? " onDark" : ""}`
+            : `stage ${cls}`;
+          // The width is the stage's own, not a class per number, so STAGES is the only place a
+          // width is written down.
+          if (width) stage.style.width = `${width}px`;
+          panel.append(h2, stage);
+          main.append(panel);
+
+          /* A fresh <script> element per stage. Re-inserting a classic script re-executes it, and the
+       bundle reads document.currentScript at the top, so each stage gets its own mount. Note
+       this means one store per stage rather than one per page: the "several tags cost one
+       fetch" property is a real-page property and is NOT what this harness shows. */
+          const s = document.createElement("script");
+          s.src = `/${manifest.file}`;
+          s.defer = true;
+          for (const [k, v] of Object.entries(a)) s.setAttribute(k, v);
+          stage.append(s);
+        }
+      }
+
+      // Every control wires itself as it is built; there is nothing left to apply on a click.
+      $("copy").onclick = () =>
+        navigator.clipboard.writeText($("snippet").textContent);
+      mount();
+    </script>
+  </body>
+</html>

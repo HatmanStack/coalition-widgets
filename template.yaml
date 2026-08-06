@@ -1,4 +1,4 @@
-AWSTemplateFormatVersion: '2010-09-09'
+AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 Description: >-
   Coalition widgets. A Lambda that reads Looker and writes JSON to S3, a CloudFront distribution
@@ -7,33 +7,104 @@ Description: >-
 Parameters:
   LookerBaseUrl:
     Type: String
-    Description: e.g. https://coalition.cloud.looker.com
+    Default: ""
+    Description: >-
+      e.g. https://coalition.cloud.looker.com. Ignored when MockLooker is true, which points the
+      publisher at the mock's own Function URL instead.
+  MockLooker:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: >-
+      Deploy a fake Looker into this stack and point the publisher at it. For testing a real
+      deployment when no Looker instance exists. Creates an UNAUTHENTICATED Function URL; the
+      data it serves is invented, but it still does not belong in a production stack.
+  MockScenario:
+    Type: String
+    Default: valid
+    AllowedValues:
+      - valid
+      - error-as-200
+      - formatted
+      - explosion
+      - small-cell
+      - small-residual
+      - no-reconcile
+      - unknown-field
+      - unknown-field-breakdown
+      - live-floor
+    Description: >-
+      What the mock lies about. Anything but `valid` should make the publisher refuse, write
+      nothing, and raise PublishFailed — which is the behaviour worth watching in a real stack.
+  # Left empty on purpose. When MockLooker is true the mock's own IDs are substituted below, so
+  # these never need setting for a test deployment; against a real instance an unset ID must
+  # fail loudly rather than resolve to whatever Look happens to carry that number.
   QuarterlyLookId:
     Type: String
-    Default: ''
+    Default: ""
   LiveLookId:
     Type: String
-    Default: ''
+    Default: ""
   RaceEthnicityLookId:
     Type: String
-    Default: ''
+    Default: ""
   ShelterStatusLookId:
     Type: String
-    Default: ''
-  ScheduleExpression:
+    Default: ""
+  CountyLookId:
+    Type: String
+    Default: ""
+  WeeklyLookId:
+    Type: String
+    Default: ""
+  WaitBandsLookId:
+    Type: String
+    Default: ""
+  AnnualLookId:
+    Type: String
+    Default: ""
+  PitCountLookId:
+    Type: String
+    Default: ""
+  NewlyHomelessLookId:
+    Type: String
+    Default: ""
+  FlowsLookId:
+    Type: String
+    Default: ""
+  ComparisonsLookId:
+    Type: String
+    Default: ""
+  RatesLookId:
+    Type: String
+    Default: ""
+  QuarterlySchedule:
+    Type: String
+    Default: rate(1 hour)
+    Description: >-
+      How often the quarterly file is rebuilt. The figures change once a quarter; this only
+      governs how soon a corrected Look reaches the page.
+  LiveSchedule:
+    Type: String
+    Default: rate(5 minutes)
+    Description: >-
+      How often the housing queue total is rebuilt. The bundle polls live.json every 60s, so
+      anything faster than a minute is wasted and anything slower is what actually sets the lag.
+  WeeklySchedule:
     Type: String
     Default: rate(1 day)
+    Description: >-
+      How often the queue's subgroups and wait bands are rebuilt. Slower than the headline count
+      on purpose: only one figure moves fast, so a departure cannot be watched across two.
   ScheduleState:
     Type: String
     Default: DISABLED
     AllowedValues: [ENABLED, DISABLED]
-  SourceRepo:
-    Type: String
-    Default: https://github.com/HatmanStack/coalition-widgets
-    Description: CodeBuild clones this to build the bundle.
+
+Conditions:
+  UseMock: !Equals [!Ref MockLooker, "true"]
 
 Resources:
-
   Bucket:
     Type: AWS::S3::Bucket
     DeletionPolicy: Retain
@@ -50,14 +121,14 @@ Resources:
       CorsConfiguration:
         CorsRules:
           - AllowedMethods: [GET, HEAD]
-            AllowedOrigins: ['*']
-            AllowedHeaders: ['*']
+            AllowedOrigins: ["*"]
+            AllowedHeaders: ["*"]
 
   OriginAccessControl:
     Type: AWS::CloudFront::OriginAccessControl
     Properties:
       OriginAccessControlConfig:
-        Name: !Sub '${AWS::StackName}-oac'
+        Name: !Sub "${AWS::StackName}-oac"
         OriginAccessControlOriginType: s3
         SigningBehavior: always
         SigningProtocol: sigv4
@@ -67,7 +138,7 @@ Resources:
     Properties:
       Bucket: !Ref Bucket
       PolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
           # Only what is meant to be public, and only through this distribution. A wildcard here
           # would make anything else in the bucket readable through the CDN as well.
@@ -75,18 +146,25 @@ Resources:
             Principal: { Service: cloudfront.amazonaws.com }
             Action: s3:GetObject
             Resource:
-              - !Sub '${Bucket.Arn}/v1/data/*'
-              - !Sub '${Bucket.Arn}/v1/chc.*.js'
-              - !Sub '${Bucket.Arn}/v1/manifest.json'
+              - !Sub "${Bucket.Arn}/v1/data/*"
+              - !Sub "${Bucket.Arn}/v1/chc.*.js"
+              - !Sub "${Bucket.Arn}/v1/manifest.json"
+              # The reference a model reads. A build output, so it carries the current bundle
+              # URL and digest and cannot drift from what the bundle actually does.
+              #
+              # There is no index.html here any more. The page a person reads is the React site
+              # in web/, deployed by Amplify; this distribution serves the widgets. Granting read
+              # on a key nothing publishes only makes the two policies harder to check.
+              - !Sub "${Bucket.Arn}/llm.txt"
             Condition:
               StringEquals:
-                'AWS:SourceArn': !Sub 'arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${Distribution}'
+                "AWS:SourceArn": !Sub "arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${Distribution}"
 
   CachePolicy:
     Type: AWS::CloudFront::CachePolicy
     Properties:
       CachePolicyConfig:
-        Name: !Sub '${AWS::StackName}-origin-decides'
+        Name: !Sub "${AWS::StackName}-origin-decides"
         # MinTTL 0 is what lets the Cache-Control the publisher and the build write decide edge
         # lifetime. Raise it and every cache decision upstream silently stops mattering.
         MinTTL: 0
@@ -103,20 +181,21 @@ Resources:
     Type: AWS::CloudFront::ResponseHeadersPolicy
     Properties:
       ResponseHeadersPolicyConfig:
-        Name: !Sub '${AWS::StackName}-cors'
+        Name: !Sub "${AWS::StackName}-cors"
         CorsConfig:
           # Origin is deliberately not forwarded. With Allow-Origin * there is nothing to vary
           # on, and forwarding it without adding it to the cache key causes intermittent CORS
           # failures.
-          AccessControlAllowOrigins: { Items: ['*'] }
-          AccessControlAllowHeaders: { Items: ['*'] }
+          AccessControlAllowOrigins: { Items: ["*"] }
+          AccessControlAllowHeaders: { Items: ["*"] }
           AccessControlAllowMethods: { Items: [GET, HEAD] }
           AccessControlAllowCredentials: false
           AccessControlMaxAgeSec: 86400
           OriginOverride: true
         SecurityHeadersConfig:
           ContentTypeOptions: { Override: true }
-          ReferrerPolicy: { ReferrerPolicy: strict-origin-when-cross-origin, Override: true }
+          ReferrerPolicy:
+            { ReferrerPolicy: strict-origin-when-cross-origin, Override: true }
 
   Distribution:
     Type: AWS::CloudFront::Distribution
@@ -125,13 +204,15 @@ Resources:
     Properties:
       DistributionConfig:
         Enabled: true
+        # The help page a partner is sent to from an error card.
+        DefaultRootObject: index.html
         HttpVersion: http2and3
         IPV6Enabled: true
         Origins:
           - Id: BucketOrigin
             DomainName: !GetAtt Bucket.RegionalDomainName
             OriginAccessControlId: !GetAtt OriginAccessControl.Id
-            S3OriginConfig: { OriginAccessIdentity: '' }
+            S3OriginConfig: { OriginAccessIdentity: "" }
         DefaultCacheBehavior:
           TargetOriginId: BucketOrigin
           ViewerProtocolPolicy: redirect-to-https
@@ -144,6 +225,37 @@ Resources:
     Type: AWS::SecretsManager::Secret
     Properties:
       Description: Looker client_id and client_secret, as JSON.
+      # In mock mode the credential is never checked for its value, only its presence, so the
+      # stack seeds one rather than making a test deployment stop for a manual step.
+      GenerateSecretString: !If
+        - UseMock
+        - SecretStringTemplate: '{"client_id": "mock"}'
+          GenerateStringKey: client_secret
+          PasswordLength: 32
+          ExcludePunctuation: true
+        - !Ref AWS::NoValue
+
+  # ---- the mock Looker, only when MockLooker=true ------------------------------------------
+  #
+  # A deployed Lambda cannot reach a server on somebody's laptop, so testing a real deployment
+  # without a Looker instance means the fake has to live in the stack. This exercises the actual
+  # function, role, network path and bucket, which a local run cannot.
+
+  MockLookerFunction:
+    Type: AWS::Serverless::Function
+    Condition: UseMock
+    Properties:
+      CodeUri: mock-looker/
+      Handler: app.handler
+      Runtime: nodejs22.x
+      MemorySize: 256
+      Timeout: 30
+      Architectures: [x86_64]
+      Environment:
+        Variables:
+          SCENARIO: !Ref MockScenario
+      FunctionUrlConfig:
+        AuthType: NONE
 
   PublisherFunction:
     Type: AWS::Serverless::Function
@@ -157,27 +269,62 @@ Resources:
       Environment:
         Variables:
           BUCKET: !Ref Bucket
-          LOOKER_BASE_URL: !Ref LookerBaseUrl
           LOOKER_SECRET_ARN: !Ref LookerCredentials
-          QUARTERLY_LOOK_ID: !Ref QuarterlyLookId
-          LIVE_LOOK_ID: !Ref LiveLookId
-          RACEETHNICITY_LOOK_ID: !Ref RaceEthnicityLookId
-          SHELTERSTATUS_LOOK_ID: !Ref ShelterStatusLookId
+          # In mock mode the base URL and the Look IDs both come from the mock, so a test
+          # deployment needs no parameters at all beyond MockLooker=true. The Function URL ends
+          # in a slash; looker.py strips it.
+          LOOKER_BASE_URL:
+            !If [
+              UseMock,
+              !GetAtt MockLookerFunctionUrl.FunctionUrl,
+              !Ref LookerBaseUrl,
+            ]
+          QUARTERLY_LOOK_ID: !If [UseMock, "1001", !Ref QuarterlyLookId]
+          ANNUAL_LOOK_ID: !If [UseMock, "3000", !Ref AnnualLookId]
+          PITCOUNT_LOOK_ID: !If [UseMock, "3001", !Ref PitCountLookId]
+          NEWLYHOMELESS_LOOK_ID: !If [UseMock, "3002", !Ref NewlyHomelessLookId]
+          FLOWS_LOOK_ID: !If [UseMock, "3003", !Ref FlowsLookId]
+          COMPARISONS_LOOK_ID: !If [UseMock, "3004", !Ref ComparisonsLookId]
+          RATES_LOOK_ID: !If [UseMock, "3005", !Ref RatesLookId]
+          LIVE_LOOK_ID: !If [UseMock, "2001", !Ref LiveLookId]
+          WEEKLY_LOOK_ID: !If [UseMock, "2002", !Ref WeeklyLookId]
+          WAITBANDS_LOOK_ID: !If [UseMock, "2003", !Ref WaitBandsLookId]
+          RACEETHNICITY_LOOK_ID: !If [UseMock, "1002", !Ref RaceEthnicityLookId]
+          SHELTERSTATUS_LOOK_ID: !If [UseMock, "1003", !Ref ShelterStatusLookId]
+          COUNTY_LOOK_ID: !If [UseMock, "1004", !Ref CountyLookId]
       Policies:
-        - Version: '2012-10-17'
+        - Version: "2012-10-17"
           Statement:
             - Effect: Allow
               Action: [s3:PutObject, s3:GetObject]
-              Resource: !Sub '${Bucket.Arn}/v1/data/*'
+              Resource: !Sub "${Bucket.Arn}/v1/data/*"
             - Effect: Allow
               Action: secretsmanager:GetSecretValue
               Resource: !Ref LookerCredentials
+      # One schedule per cadence, each naming its own. There was a single schedule with no
+      # Input, so EventBridge invoked with an empty event, the handler fell back to its
+      # "quarterly" default, and live.json was never written by anything but a manual invoke —
+      # the queue total, the one figure meant to move minute by minute, would 404 on a fresh
+      # stack and then never appear.
       Events:
-        Scheduled:
+        Quarterly:
           Type: ScheduleV2
           Properties:
-            ScheduleExpression: !Ref ScheduleExpression
+            ScheduleExpression: !Ref QuarterlySchedule
             State: !Ref ScheduleState
+            Input: '{"cadence": "quarterly"}'
+        Live:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: !Ref LiveSchedule
+            State: !Ref ScheduleState
+            Input: '{"cadence": "live"}'
+        Weekly:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: !Ref WeeklySchedule
+            State: !Ref ScheduleState
+            Input: '{"cadence": "weekly"}'
 
   PublishFailedAlarm:
     Type: AWS::CloudWatch::Alarm
@@ -199,7 +346,7 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal: { Service: codebuild.amazonaws.com }
@@ -207,19 +354,38 @@ Resources:
       Policies:
         - PolicyName: build-and-publish
           PolicyDocument:
-            Version: '2012-10-17'
+            Version: "2012-10-17"
             Statement:
               - Effect: Allow
-                Action: [logs:CreateLogGroup, logs:CreateLogStream, logs:PutLogEvents]
-                Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/*'
+                Action:
+                  [logs:CreateLogGroup, logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/*"
               - Effect: Allow
                 Action: s3:PutObject
-                Resource: !Sub '${Bucket.Arn}/v1/*'
+                Resource:
+                  - !Sub "${Bucket.Arn}/v1/*"
+                  # llm.txt sits at the root, not under v1/, and this list had drifted out of
+                  # step with the bucket policy below — which has always allowed it to be *read*
+                  # from there. So every build uploaded the bundle and the manifest, failed on
+                  # the last upload with AccessDenied, and exited non-zero after two of the three
+                  # objects were already public.
+                  - !Sub "${Bucket.Arn}/llm.txt"
+              - Effect: Allow
+                Action: [s3:GetObject, s3:GetObjectVersion]
+                Resource: !Sub "${Bucket.Arn}/build/*"
+              # CodeBuild resolves an S3 source through ListBucketVersions even when the bucket
+              # is not versioned. It is a bucket-level action, so the resource is the bucket
+              # itself and not the key — granting it on build/* silently does nothing and the
+              # build fails at DOWNLOAD_SOURCE with AccessDenied.
+              - Effect: Allow
+                Action:
+                  [s3:ListBucket, s3:ListBucketVersions, s3:GetBucketVersioning]
+                Resource: !GetAtt Bucket.Arn
 
   BundleBuild:
     Type: AWS::CodeBuild::Project
     Properties:
-      Name: !Sub '${AWS::StackName}-bundle'
+      Name: !Sub "${AWS::StackName}-bundle"
       Description: Builds the IIFE embed bundle and publishes it. No local toolchain needed.
       ServiceRole: !GetAtt BundleBuildRole.Arn
       Artifacts: { Type: NO_ARTIFACTS }
@@ -231,12 +397,27 @@ Resources:
           - Name: BUCKET
             Value: !Ref Bucket
           - Name: DATA_ORIGIN
-            Value: !Sub 'https://${Distribution.DomainName}'
+            Value: !Sub "https://${Distribution.DomainName}"
+      # The source is a zip of the working tree, uploaded by scripts/deploy.mjs immediately
+      # before the build starts.
+      #
+      # It was GITHUB, which meant CodeBuild cloned a repository that has to exist, be pushed to,
+      # and have its connection authorised once in the console. None of that had happened, so
+      # every build failed at DOWNLOAD_SOURCE with "authentication required" while the deploy
+      # script caught the failure and printed a fallback — the bundle silently never built.
+      #
+      # From S3 it builds exactly the code being deployed, with no remote, no connection step and
+      # nothing to keep in sync. The zip lands under build/, which the bucket policy does not
+      # expose: that policy names v1/data/*, v1/chc.*.js and v1/manifest.json and nothing else,
+      # so source is not reachable through the distribution.
       Source:
-        Type: GITHUB
-        Location: !Ref SourceRepo
+        Type: S3
+        Location: !Sub "${Bucket}/build/source.zip"
         BuildSpec: embed/buildspec.yml
-      SourceVersion: main
+      # Explicitly empty, not absent. This was `main` for the GitHub source, and simply deleting
+      # the property left the old value on the deployed project — CloudFormation did not reset
+      # it. CodeBuild then tried to resolve "main" as an S3 object version.
+      SourceVersion: ""
       TimeoutInMinutes: 10
 
 Outputs:
@@ -247,6 +428,15 @@ Outputs:
     Value: !GetAtt Distribution.DomainName
   BundleBuildProject:
     Value: !Ref BundleBuild
+  PublisherFunctionName:
+    Description: Invoke with {"cadence":"quarterly"} or {"cadence":"live"}.
+    Value: !Ref PublisherFunction
   LookerSecretArn:
     Description: Put {"client_id":"...","client_secret":"..."} here.
     Value: !Ref LookerCredentials
+  MockLookerUrl:
+    Condition: UseMock
+    Description: >-
+      The fake Looker this stack is pointed at. Unauthenticated, serving invented data. Its
+      presence in the outputs means this stack is NOT reading a real Looker.
+    Value: !GetAtt MockLookerFunctionUrl.FunctionUrl

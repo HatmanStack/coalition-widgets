@@ -1,0 +1,63 @@
+{
+  "meta": {
+    "schemaVersion": 1,
+    "generated": "2026-08-01T14:04:00Z",
+    "cadence": "weekly",
+    "source": "Coalition HMIS via Looker",
+    "attribution": "Coalition to End Homelessness, Wichita and Sedgwick County",
+    "disclaimer": "Unaffiliated concept work. Not produced, authorised or endorsed by United Way of the Plains or the Coalition to End Homelessness.",
+    "minBundle": 1
+  },
+  "measures": {
+    "chronicallyHomelessOnCq": {
+      "value": 532,
+      "asOf": "2026-08-01T14:04:00Z",
+      "cadence": "weekly",
+      "precision": "exact",
+      "kind": "count"
+    },
+    "unaccompaniedYouthOnCq": {
+      "value": 71,
+      "asOf": "2026-08-01T14:04:00Z",
+      "cadence": "weekly",
+      "precision": "exact",
+      "kind": "count"
+    },
+    "veteransOnCq": {
+      "value": 28,
+      "asOf": "2026-08-01T14:04:00Z",
+      "cadence": "weekly",
+      "precision": "exact",
+      "kind": "count"
+    },
+    "totalOlderAdultsAndSeniorsOnCq": {
+      "value": 318,
+      "asOf": "2026-08-01T14:04:00Z",
+      "cadence": "weekly",
+      "precision": "exact",
+      "kind": "count"
+    },
+    "averageDaysOnCq": {
+      "value": 173,
+      "asOf": "2026-08-01T14:04:00Z",
+      "cadence": "weekly",
+      "precision": "exact",
+      "kind": "average"
+    }
+  },
+  "breakdowns": {
+    "olderAdultsOnCq": {
+      "asOf": "2026-08-01T14:04:00Z",
+      "cadence": "weekly",
+      "precision": "exact",
+      "kind": "count",
+      "universe": 318,
+      "minCell": 5,
+      "categories": [
+        { "label": "Age 55 to 61", "value": 181 },
+        { "label": "Age 62 and over", "value": 137 }
+      ],
+      "suppressed": { "count": 0, "value": 0 }
+    }
+  }
+}

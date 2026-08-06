@@ -19,10 +19,13 @@ phases:
     runtime-versions:
       nodejs: 22
     commands:
-      # `npm ci` and nothing else. It installs exactly the committed lockfile, so the build is
-      # the same on every run and on every machine, which is what makes a hash-named immutable
-      # artifact mean anything.
-      - npm ci
+      # Exactly the committed lockfile, so the build is the same on every run and on every
+      # machine — which is what makes a hash-named immutable artifact mean anything.
+      #
+      # `--omit=dev` because esbuild is a dependency and Playwright is a devDependency: the
+      # browser test suite has no part in producing the bundle, and installing it here cost a
+      # download of the whole tool plus its browsers for nothing.
+      - npm ci --omit=dev
 
   pre_build:
     commands:
@@ -47,6 +50,13 @@ phases:
       - |
         aws s3 cp dist/manifest.json "s3://$BUCKET/v1/manifest.json" \
           --content-type "application/json; charset=utf-8" \
+          --cache-control "public, max-age=300"
+      # Short-lived, like the manifest: it carries the current bundle URL, so an old copy at
+      # the edge would hand somebody a tag pointing at a build that no longer exists.
+      # The page a person reads is not here — it is the React site, deployed by Amplify.
+      - |
+        aws s3 cp dist/llm.txt "s3://$BUCKET/llm.txt" \
+          --content-type "text/plain; charset=utf-8" \
           --cache-control "public, max-age=300"
       - echo "published $BUNDLE_FILE"
       - node -e "console.log(require('./dist/manifest.json').tag)"

@@ -1,0 +1,44 @@
+{
+  "meta": {
+    "schemaVersion": 1,
+    "generated": "2026-08-01T14:04:00Z",
+    "cadence": "monthly",
+    "source": "Coalition HMIS via Looker",
+    "attribution": "Coalition to End Homelessness, Wichita and Sedgwick County",
+    "disclaimer": "Unaffiliated concept work. Not produced, authorised or endorsed by United Way of the Plains or the Coalition to End Homelessness.",
+    "minBundle": 1
+  },
+  "series": {
+    "cqReferrals": {
+      "asOf": "2026-07-31",
+      "cadence": "monthly",
+      "precision": "exact",
+      "kind": "count",
+      "minCell": 5,
+      "total": 1318,
+      "points": [
+        { "label": "2024-12", "value": 81 },
+        { "label": "2025-01", "value": 10 },
+        { "label": "2025-02", "withheld": true },
+        { "label": "2025-03", "withheld": true },
+        { "label": "2025-04", "withheld": true },
+        { "label": "2025-05", "value": 38 },
+        { "label": "2025-06", "value": 35 },
+        { "label": "2025-07", "value": 15 },
+        { "label": "2025-08", "value": 23 },
+        { "label": "2025-09", "value": 7 },
+        { "label": "2025-10", "value": 58 },
+        { "label": "2025-11", "value": 45 },
+        { "label": "2025-12", "value": 71 },
+        { "label": "2026-01", "value": 49 },
+        { "label": "2026-02", "value": 72 },
+        { "label": "2026-03", "value": 117 },
+        { "label": "2026-04", "value": 160 },
+        { "label": "2026-05", "value": 147 },
+        { "label": "2026-06", "value": 177 },
+        { "label": "2026-07", "value": 206 }
+      ],
+      "withheld": { "count": 3, "value": 7 }
+    }
+  }
+}

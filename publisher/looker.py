@@ -14,13 +14,26 @@ import json
 import urllib.parse
 import urllib.request
 
-_token = None  # cached across warm invocations; the login is ~1s and the token lasts an hour
+_token = (
+    None  # cached across warm invocations; the login is ~1s and the token lasts an hour
+)
+
+
+def _base(base_url: str) -> str:
+    """The instance URL without a trailing slash.
+
+    A Lambda Function URL ends in one, and so does a base URL somebody pastes out of a browser.
+    Without this the request goes to `https://host//api/4.0/login`, which some servers route and
+    some reject, and the failure reads as a credential problem rather than a typo.
+    """
+    return base_url.rstrip("/")
 
 
 def login(base_url: str, client_id: str, client_secret: str) -> str:
     global _token
     if _token:
         return _token
+    base_url = _base(base_url)
     body = urllib.parse.urlencode(
         {"client_id": client_id, "client_secret": client_secret}
     ).encode()
@@ -38,7 +51,7 @@ def run_look(base_url: str, token: str, look_id: str, limit: int = 500) -> list[
         {"apply_formatting": "false", "cache": "true", "limit": limit}
     )
     request = urllib.request.Request(
-        f"{base_url}/api/4.0/looks/{look_id}/run/json?{query}",
+        f"{_base(base_url)}/api/4.0/looks/{look_id}/run/json?{query}",
         headers={"Authorization": f"token {token}"},
     )
     with urllib.request.urlopen(request, timeout=30) as response:

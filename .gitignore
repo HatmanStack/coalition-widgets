@@ -4,4 +4,10 @@ dist/
 .deploy.json
 .deploy-outputs.json
 __pycache__/
-render-check.mjs
+.ruff_cache/
+.pytest_cache/
+.build-source.zip
+.deploy-test.html
+
+# local smoke test page, carries a build-specific integrity digest
+smoke.html
