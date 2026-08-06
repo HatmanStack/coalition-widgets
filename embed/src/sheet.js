@@ -53,6 +53,16 @@ const CSS = `
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 .card {
+  /* The card is a query container too, not only the tile around it.
+     The tile is the full track — 436px at 1800px in dashboard layout — and the card sits inside
+     it with 52px of its own padding, so the content box is 384. With the container only on the
+     tile, every cqi length inside a card was resolved from 436: 13.5 per cent more width than
+     the card actually offers, which made the queue subgroup figure 34.4px where 32.8px is what
+     fits. Same fault as the one the tile rule below was added to fix, one level further in, and
+     it survived because it never quite overflowed.
+     A container is a container for its DESCENDANTS, so the tile keeps its own and the pane-level
+     span rules are untouched. */
+  container-type: inline-size;
   background: var(--chc-surface);
   border: 1px solid var(--chc-border);
   border-radius: 10px;
