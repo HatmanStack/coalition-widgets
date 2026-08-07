@@ -89,7 +89,7 @@ TIMESTAMPS = [
     ("2026-03-31T23:59:59Z", True),
     ("2026-02-31T25:61:61Z", False),  # shaped like an instant, is not a moment in time
     ("2026-13-01T00:00:00Z", False),  # month 13
-    ("2026-2-3T1:2:3Z", False),  # a date, but not the literal form the exemption assumes
+    ("2026-2-3T1:2:3Z", False),  # a real date, not the literal form
     ("2026-03-31", False),  # a date with no time
     ("intake.coordinator@example.invalid", False),
     ("", False),
