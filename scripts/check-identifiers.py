@@ -82,6 +82,19 @@ CLEAN = [
 
 AS_OF = "2026-03-31T23:59:59Z"
 
+# The as-of is the one Looker string exempt from the scan, on the grounds that it is a timestamp.
+# So it has to actually be one: shaped like an instant AND a real instant. A value that is merely
+# shaped like one would be published unread.
+TIMESTAMPS = [
+    ("2026-03-31T23:59:59Z", True),
+    ("2026-02-31T25:61:61Z", False),  # shaped like an instant, is not a moment in time
+    ("2026-13-01T00:00:00Z", False),  # month 13
+    ("2026-2-3T1:2:3Z", False),  # a date, but not the literal form the exemption assumes
+    ("2026-03-31", False),  # a date with no time
+    ("intake.coordinator@example.invalid", False),
+    ("", False),
+]
+
 # Shaped like `build` produces, because the scan walks the payload rather than the four places
 # labels are made and the walk is the thing being tested.
 PAYLOAD = {
@@ -232,6 +245,18 @@ case(
     message is not None and EMAIL not in message,
     message or "",
 )
+
+for text, ok in TIMESTAMPS:
+    try:
+        app._timestamp(text, "as_of", "w")
+        refused = False
+    except app.Refused:
+        refused = True
+    case(
+        f"as-of {'accepted' if ok else 'refused '}: {text[:30]!r}",
+        refused != ok,
+        "accepted" if refused != ok else "",
+    )
 
 width = max(len(name) for name, _, _ in results)
 failures = 0

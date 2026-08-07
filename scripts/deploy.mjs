@@ -435,13 +435,26 @@ const tag = (layout, widgets) =>
   `        crossorigin="anonymous" defer\n        data-layout="${layout}"\n` +
   `        data-widgets="${widgets}"></script>`;
 
-/* All eleven, always. This used to list the five that had data, which made a page showing five
-   of eleven look like the complete set — the same silent narrowing the bundle's error codes
-   exist to prevent. If a widget cannot render, its card says so and that is the useful signal. */
-// From the manifest the build just published, not a list kept here. The list kept here had gone
-// stale at eleven, so the page this writes to prove a deploy omitted the two newest widgets —
-// exactly the two most likely to be broken by it.
-const ALL_WIDGETS = (manifest.widgets || []).join(",");
+/* Every widget, always, from the manifest the build just published.
+ *
+ * It used to list the five that had data, which made a page showing five of eleven look like the
+ * complete set — the same silent narrowing the bundle's error codes exist to prevent. Then it
+ * listed eleven while the catalogue held thirteen, so the page written to prove a deploy omitted
+ * the two newest widgets: exactly the two most likely to be broken by it.
+ *
+ * Refused rather than defaulted. `manifest.widgets || []` turns a manifest that never carried
+ * the field into a page mounting nothing at all, which renders clean and verifies precisely
+ * nothing — a guard reading a proxy instead of the signal. */
+if (!Array.isArray(manifest.widgets) || manifest.widgets.length === 0) {
+  die(
+    `The manifest at ${origin}/v1/manifest.json carries no widget list, so the page that
+` +
+      `      proves this deploy would mount nothing and pass. Rebuild the bundle: embed/build.mjs
+` +
+      `      writes the catalogue into the manifest.`,
+  );
+}
+const ALL_WIDGETS = manifest.widgets.join(",");
 
 writeFileSync(
   page,

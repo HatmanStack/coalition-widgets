@@ -69,11 +69,24 @@ _TIMESTAMP = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 def _timestamp(value, field, where):
     if not isinstance(value, str) or not value:
         raise Refused(f"{where}: {field} is missing, so there would be no as-of")
+    # Shape first, then the calendar. The pattern alone accepts 2026-02-31T25:61:61Z — correctly
+    # shaped and not a moment in time — and this value is exempt from the identifier scan on the
+    # strength of being a timestamp, so "looks like one" is not enough. strptime alone is not
+    # enough either: it accepts 2026-3-1T1:2:3Z, and the exemption is only safe for the exact
+    # literal form.
     if not _TIMESTAMP.match(value):
         raise Refused(
             f"{where}: {field} is {value!r}, which is not an as-of. Expected an ISO 8601 "
             f"instant in UTC, as in 2026-03-31T23:59:59Z."
         )
+    try:
+        # The trailing Z is UTC and the pattern above has already insisted on it, so say so
+        # rather than building a naive datetime and leaving the zone to be assumed later.
+        datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    except ValueError:
+        raise Refused(
+            f"{where}: {field} is {value!r}, which is shaped like an as-of but is not a date."
+        ) from None
     return value
 
 
