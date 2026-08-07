@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "reference/**"
+      - "*.md"
+      - ".claude/**"
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "reference/**"
+      - "*.md"
+      - ".claude/**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Read-only, declared at the workflow so every job inherits it and a job added later cannot
+# quietly get more. CI checks out, lints, builds and runs tests; it writes nothing back. Without
+# this block the GITHUB_TOKEN carries whatever the repository default grants, which widens the
+# blast radius of a compromised action or a test process that runs arbitrary code — and this
+# workflow runs `uvx` tools and a headless browser, both of which fetch from the network.
+permissions:
+  contents: read
+
+env:
+  CI: true
+  FORCE_COLOR: 1
+
+jobs:
+  publisher:
+    name: Publisher
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - name: Ruff check
+        run: uvx ruff check publisher scripts
+      - name: Ruff format check
+        run: uvx ruff format publisher scripts --check
+      - name: Import check
+        # The publisher has no unit tests of its own yet; every check it makes is exercised
+        # end to end by the scenario job below. This only proves the module still loads, which
+        # is worth having because a syntax error would otherwise surface as a scenario timing
+        # out rather than as a syntax error.
+        run: python3 -c "import sys; sys.path.insert(0, 'publisher'); import app, contract, looker"
+
+  template:
+    name: Template
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+      - uses: aws-actions/setup-sam@2360ef6d90015369947b45b496193ab9976a9b04 # v2
+        with:
+          use-installer: true
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - name: sam validate --lint
+        run: sam validate --lint --region us-east-1
+      - name: cfn-lint
+        run: uvx cfn-lint template.yaml
+
+  bundle:
+    name: Bundle and browser tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+      - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Build
+        # A localhost origin is what the test suites build against anyway. The real origin is
+        # only known after a deploy, and nothing here needs it.
+        run: node embed/build.mjs --origin http://localhost:8129
+      - name: Error paths
+        run: npm run test:errors
+      - name: Layout across widths and combinations
+        run: npm run test:layout
+
+  scenarios:
+    name: Every hostile scenario is refused
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+      - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6
+        with:
+          node-version: "22"
+      - name: Run the publisher against every scenario the mock can serve
+        # The one that matters. `valid` must publish and every other scenario must refuse; a
+        # scenario that starts publishing is a check that stopped working, and that is exactly
+        # the failure this project exists to prevent.
+        run: node scripts/check-scenarios.mjs

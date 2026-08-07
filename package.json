@@ -6,9 +6,19 @@
   "scripts": {
     "deploy": "node scripts/deploy.mjs",
     "build": "node embed/build.mjs",
-    "validate": "sam validate --lint --region us-east-1 && uvx cfn-lint template.yaml"
+    "validate": "sam validate --lint --region us-east-1 && uvx cfn-lint template.yaml",
+    "test": "npm run test:errors && npm run test:layout && npm run test:identifiers && npm run test:llm-txt && npm run test:scenarios",
+    "dev": "node embed/test/serve.mjs",
+    "test:errors": "node embed/test/errors.mjs",
+    "test:layout": "node embed/test/layout.mjs",
+    "test:identifiers": "python3 scripts/check-identifiers.py",
+    "test:llm-txt": "node scripts/check-llm-txt.mjs",
+    "test:scenarios": "node scripts/check-scenarios.mjs"
   },
   "devDependencies": {
+    "playwright": "1.62.1"
+  },
+  "dependencies": {
     "esbuild": "0.28.1"
   }
 }

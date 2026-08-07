@@ -1,0 +1,24 @@
+{
+  "meta": {
+    "schemaVersion": 1,
+    "generated": "2026-08-01T14:04:00Z",
+    "cadence": "annual",
+    "source": "Coalition HMIS via Looker",
+    "attribution": "Coalition to End Homelessness, Wichita and Sedgwick County",
+    "disclaimer": "Unaffiliated concept work. Not produced, authorised or endorsed by United Way of the Plains or the Coalition to End Homelessness.",
+    "minBundle": 1
+  },
+  "measures": {
+    "inflow": {
+      "value": 4242,
+      "segments": {
+        "veterans": 777,
+        "chronic": 555
+      },
+      "asOf": "2025-12-31T23:59:59Z",
+      "cadence": "annual",
+      "precision": "exact",
+      "kind": "count"
+    }
+  }
+}

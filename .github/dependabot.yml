@@ -1,0 +1,12 @@
+version: 2
+updates:
+  # The only dependencies this repo has are its GitHub Actions, all SHA-pinned. Dependabot is
+  # what keeps a pinned SHA from silently becoming an unmaintained one.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+      include: scope

@@ -1,0 +1,5 @@
+{
+  "error": "Invalid query",
+  "message": "Field 'clients.count' does not exist in explore 'community_queue'",
+  "documentation_url": "https://looker.example.invalid/errors/422"
+}

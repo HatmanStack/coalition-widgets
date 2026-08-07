@@ -1,0 +1,6 @@
+# `contract` and `looker` sit beside app.py in publisher/ and are imported by bare name, because
+# that is how they resolve from the Lambda's package root. Without this, isort files them with
+# boto3 as third-party and asks for the blank line between them to go — which would delete the
+# one thing that grouping says: what comes from PyPI, and what is ours.
+[lint.isort]
+known-first-party = ["app", "contract", "looker"]

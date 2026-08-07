@@ -1,0 +1,896 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>State of Homelessness — Wichita &amp; Sedgwick County</title>
+<meta name="description" content="What the Coalition to End Homelessness does for neighbors without a home in Wichita and Sedgwick County, how well it works, and why the number keeps rising.">
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230044b5'/%3E%3Cpath d='M16 6.5 25.5 15H23v10.5h-5V19h-4v6.5H9V15H6.5z' fill='%23fff'/%3E%3C/svg%3E">
+<meta property="og:type" content="website">
+<meta property="og:title" content="State of Homelessness — Wichita &amp; Sedgwick County">
+<meta property="og:description" content="Annual census, inflow against outflow, and what it costs to get by in Sedgwick County.">
+<script>
+  /* set the theme before first paint so there is no flash */
+  try {
+    var t = localStorage.getItem('theme');
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  } catch (e) {}
+</script>
+<style>
+  /* minimal reset */
+  *, *::before, *::after { box-sizing: border-box; }
+  body { margin: 0; }
+  img, svg { display: block; max-width: 100%; }
+</style>
+<style>
+  /* ============================================================
+     Series hexes validated with dataviz/scripts/validate_palette.js
+     — 3-slot categorical (--pairs all), 2-slot stack, and the
+     3-step ordinal ramp all PASS in both light and dark.
+     ============================================================ */
+  :root {
+    color-scheme: light;
+    --plane:      #f4f6fa;
+    --surface:    #fafbfd;
+    --surface-2:  #eef1f7;
+    --ink:        #12161f;
+    --ink-2:      #4a5265;
+    --muted:      #767e90;
+    --grid:       #e2e6ef;
+    --baseline:   #c6ccda;
+    --border:     rgba(18, 22, 31, .10);
+    --border-2:   rgba(18, 22, 31, .16);
+
+    --s1:         #0044b5;   /* United Way blue */
+    --s2:         #eb6834;
+    --s3:         #1baf7a;
+    --unknown:    #b3bacb;
+
+    --ord-1:      #86b6ef;   /* ordinal ramp, light → dark */
+    --ord-2:      #2a78d6;
+    --ord-3:      #0044b5;
+    --past:       #86b6ef;   /* dumbbell: earlier year */
+
+    --gold:       #ffba00;
+    --shadow: 0 1px 2px rgba(18,22,31,.05), 0 8px 24px -12px rgba(18,22,31,.12);
+
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+    --step--1: clamp(.75rem, .72rem + .12vw, .8125rem);
+    --step-0:  clamp(.9375rem, .91rem + .14vw, 1rem);
+    --step-1:  clamp(1.0625rem, 1rem + .3vw, 1.25rem);
+    --step-2:  clamp(1.25rem, 1.1rem + .7vw, 1.75rem);
+    --step-3:  clamp(1.75rem, 1.4rem + 1.6vw, 2.75rem);
+    --hero:    clamp(3.25rem, 2.4rem + 4.4vw, 5.5rem);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --plane: #0b0d12; --surface: #12151c; --surface-2: #1a1e27;
+      --ink: #fff; --ink-2: #b4bccc; --muted: #838b9c;
+      --grid: #232833; --baseline: #333a47;
+      --border: rgba(255,255,255,.10); --border-2: rgba(255,255,255,.18);
+      --s1: #5082f0; --s2: #d95926; --s3: #199e70; --unknown: #5c6478;
+      --ord-1: #184f95; --ord-2: #3987e5; --ord-3: #9ec5f4;
+      --past: #184f95;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --plane: #0b0d12; --surface: #12151c; --surface-2: #1a1e27;
+    --ink: #fff; --ink-2: #b4bccc; --muted: #838b9c;
+    --grid: #232833; --baseline: #333a47;
+    --border: rgba(255,255,255,.10); --border-2: rgba(255,255,255,.18);
+    --s1: #5082f0; --s2: #d95926; --s3: #199e70; --unknown: #5c6478;
+    --ord-1: #184f95; --ord-2: #3987e5; --ord-3: #9ec5f4;
+    --past: #184f95;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+  }
+
+  body {
+    background: var(--plane); color: var(--ink);
+    font-family: var(--sans); font-size: var(--step-0); line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 1180px; margin-inline: auto;
+    padding: clamp(1rem,.5rem + 2vw,2.5rem) clamp(.875rem,.4rem + 1.8vw,2rem) 5rem;
+    display: flex; flex-direction: column; gap: clamp(1.5rem,1rem + 2vw,2.5rem);
+  }
+  h1,h2,h3,h4 { margin: 0; font-weight: 700; letter-spacing: -.018em; text-wrap: balance; }
+  p { margin: 0; }
+  a { color: var(--s1); text-underline-offset: .18em; }
+  :focus-visible { outline: 2px solid var(--s1); outline-offset: 3px; border-radius: 3px; }
+
+  .disclaimer {
+    border: 1px solid var(--border-2); border-left: 4px solid var(--gold);
+    border-radius: 6px; background: var(--surface); padding: .8rem 1.05rem;
+    font-size: var(--step--1); color: var(--ink-2); line-height: 1.6;
+  }
+  .disclaimer strong { color: var(--ink); }
+
+  .masthead { display: flex; flex-direction: column; gap: .5rem; }
+  .rule { height: 3px; width: 56px; background: var(--gold); border-radius: 2px; }
+  .eyebrow {
+    font-family: var(--mono); font-size: var(--step--1);
+    letter-spacing: .13em; text-transform: uppercase; color: var(--muted);
+  }
+  .masthead h1 { font-size: var(--step-3); line-height: 1.05; letter-spacing: -.032em; }
+  .masthead .sub { color: var(--ink-2); max-width: 66ch; font-size: var(--step-1); line-height: 1.5; }
+
+  /* ---- section headings --------------------------------------- */
+  .sec-head { display: flex; flex-direction: column; gap: .2rem; margin-bottom: -.4rem; }
+  .sec-head h2 { font-size: var(--step-2); letter-spacing: -.028em; }
+  .sec-head p { color: var(--ink-2); max-width: 70ch; }
+
+  /* ---- cards --------------------------------------------------- */
+  .grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%,300px),1fr)); }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    box-shadow: var(--shadow); padding: 1.15rem 1.3rem 1.3rem;
+    display: flex; flex-direction: column; gap: .8rem;
+  }
+  .card h3 { font-size: var(--step-1); letter-spacing: -.02em; }
+  .period {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .note { font-size: var(--step--1); color: var(--ink-2); line-height: 1.55; }
+  .src { font-family: var(--mono); font-size: 11px; color: var(--muted); line-height: 1.6; }
+
+  /* ---- hero ---------------------------------------------------- */
+  .hero { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%,260px),1fr)); gap: 1.5rem 2rem; align-items: start; }
+  .hero-fig { font-size: var(--hero); font-weight: 700; line-height: .9; letter-spacing: -.048em; }
+  .hero-lab { font-size: var(--step-1); color: var(--ink-2); margin-top: .4rem; max-width: 26ch; }
+  .delta {
+    display: inline-flex; align-items: baseline; gap: .35rem; margin-top: .7rem;
+    font-size: var(--step-0); color: var(--ink-2);
+  }
+  .delta b { color: var(--ink); font-weight: 700; }
+
+  /* ---- stat tiles ---------------------------------------------- */
+  .tiles { display: grid; gap: 1rem 1.25rem; grid-template-columns: repeat(auto-fit, minmax(min(100%,150px),1fr)); }
+  .tile .val { display: block; font-size: var(--step-2); font-weight: 700; letter-spacing: -.03em; line-height: 1.12; }
+  .tile .lab { display: block; font-size: var(--step--1); color: var(--ink-2); margin-top: .1rem; }
+
+  /* ---- columns -------------------------------------------------- */
+  .cols { display: grid; gap: .5rem; height: 200px; }
+  .col { display: flex; flex-direction: column; align-items: center; gap: .35rem; height: 100%; }
+  .col .cap { font-size: var(--step--1); font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
+  .col .plot { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; }
+  .stem { width: min(24px, 62%); background: var(--s1); border-radius: 4px 4px 0 0; }
+  /* stacked column: 2px surface gap between segments */
+  .stem.stacked { display: flex; flex-direction: column; gap: 2px; background: none; border-radius: 0; }
+  .stem.stacked > span { display: block; width: 100%; flex: none; }
+  .stem.stacked > span:first-child { border-radius: 4px 4px 0 0; }
+  .axis { display: grid; gap: .5rem; border-top: 1px solid var(--baseline); padding-top: .4rem; }
+  .axis span { text-align: center; font-size: var(--step--1); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .c3 { grid-template-columns: repeat(3, 1fr); }
+  .c6 { grid-template-columns: repeat(6, 1fr); }
+
+  /* ---- horizontal bars ------------------------------------------ */
+  .bars { display: flex; flex-direction: column; gap: .5rem; }
+  .bar-row { display: grid; grid-template-columns: minmax(84px,32%) 1fr auto; gap: .625rem; align-items: center; font-size: var(--step--1); }
+  .bar-row .cat { color: var(--ink-2); text-align: right; line-height: 1.25; }
+  .bar-track { height: 18px; display: flex; align-items: center; }
+  .bar-fill { height: 18px; background: var(--s1); border-radius: 0 4px 4px 0; min-width: 2px; }
+  .bar-fill.alt { background: var(--s2); }
+  .bar-fill.unk { background: var(--unknown); }
+  .bar-row .val { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 4ch; text-align: right; }
+
+  /* ---- stacked horizontal bar ----------------------------------- */
+  .stack { display: flex; width: 100%; height: 24px; gap: 2px; }
+  .stack > span { display: block; height: 100%; }
+  .stack > span:first-child { border-radius: 4px 0 0 4px; }
+  .stack > span:last-child { border-radius: 0 4px 4px 0; }
+  .stack-lab { display: flex; justify-content: space-between; font-size: var(--step--1); color: var(--ink-2); margin-bottom: .15rem; }
+  .stack-lab b { color: var(--ink); }
+
+  .legend { display: flex; flex-wrap: wrap; gap: .45rem 1rem; font-size: var(--step--1); color: var(--ink-2); }
+  .legend .item { display: inline-flex; align-items: center; gap: .4rem; }
+  .legend b { color: var(--ink); }
+  .swatch { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+
+  /* ---- dumbbell -------------------------------------------------- */
+  .dumb { display: flex; flex-direction: column; gap: .7rem; }
+  .dumb-row { display: grid; grid-template-columns: minmax(78px,26%) 1fr auto; gap: .7rem; align-items: center; font-size: var(--step--1); }
+  .dumb-row .cat { color: var(--ink-2); text-align: right; line-height: 1.25; }
+  .dtrack { position: relative; height: 20px; }
+  .dtrack .conn { position: absolute; top: 50%; height: 2px; background: var(--baseline); transform: translateY(-50%); border-radius: 1px; }
+  .dtrack .dot {
+    position: absolute; top: 50%; width: 11px; height: 11px; border-radius: 50%;
+    transform: translate(-50%, -50%); box-shadow: 0 0 0 2px var(--surface);  /* 2px surface ring */
+  }
+  /* earlier year is a hollow ring, so it stays visible when the two years
+     nearly coincide — and identity carries on shape, not color alone */
+  .dtrack .dot.a { background: var(--surface); border: 3px solid var(--past); }
+  .dtrack .dot.b { background: var(--s1); }
+  .dumb-row .chg { font-variant-numeric: tabular-nums; color: var(--ink); white-space: nowrap; font-weight: 600; }
+  .dumb-row .chg .from { color: var(--muted); font-weight: 500; }
+
+  /* ---- callout --------------------------------------------------- */
+  .callout {
+    background: var(--surface-2); border-radius: 8px; padding: 1rem 1.15rem;
+    display: flex; flex-direction: column; gap: .3rem;
+  }
+  .callout .big { font-size: var(--step-2); font-weight: 700; letter-spacing: -.03em; line-height: 1.15; }
+  .callout .cl { font-size: var(--step--1); color: var(--ink-2); }
+
+  /* ---- tables ----------------------------------------------------- */
+  .tablewrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { border-collapse: collapse; width: 100%; font-size: var(--step--1); min-width: 320px; }
+  th, td { text-align: left; padding: .4rem .6rem .4rem 0; border-bottom: 1px solid var(--grid); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+  td.n { text-align: right; font-variant-numeric: tabular-nums; padding-right: 0; }
+  details.tv summary {
+    cursor: pointer; font-family: var(--mono); font-size: 11px;
+    letter-spacing: .05em; text-transform: uppercase; color: var(--ink-2);
+  }
+  details.tv summary:hover { color: var(--ink); }
+  details.tv[open] summary { margin-bottom: .6rem; }
+
+  /* ---- links row --------------------------------------------------- */
+  .links { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(min(100%,240px),1fr)); }
+  .lnk {
+    display: flex; flex-direction: column; gap: .2rem;
+    border: 1px solid var(--border-2); border-radius: 8px; padding: .85rem 1rem;
+    text-decoration: none; color: inherit; background: var(--surface);
+  }
+  a.lnk:hover { background: var(--surface-2); }
+  .lnk .t { font-weight: 700; color: var(--s1); }
+  .lnk .d { font-size: var(--step--1); color: var(--ink-2); line-height: 1.7; }
+  /* contact details are read, not clicked — no link affordance */
+  .lnk.static { background: none; border-style: dashed; }
+  .lnk.static .t { color: var(--ink); }
+
+  #tip {
+    position: fixed; z-index: 50; pointer-events: none; opacity: 0; transition: opacity .12s ease;
+    background: var(--ink); color: var(--plane); font-size: 12px;
+    padding: .35rem .5rem; border-radius: 5px; white-space: nowrap;
+    box-shadow: 0 4px 14px rgba(0,0,0,.28);
+  }
+  #tip.on { opacity: 1; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+</style>
+<style>
+  /* ---- theme toggle --------------------------------------------- */
+  .themebar { display: flex; justify-content: flex-end; margin-bottom: -.75rem; }
+  .themebtn {
+    display: inline-flex; align-items: center; gap: .45rem;
+    font: 600 var(--step--1)/1 var(--sans);
+    padding: .5rem .75rem; border-radius: 6px;
+    border: 1px solid var(--border-2); background: var(--surface); color: var(--ink-2);
+    cursor: pointer;
+  }
+  .themebtn:hover { background: var(--surface-2); color: var(--ink); }
+  .themebtn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+  .themebtn .sun { display: none; }
+  :root[data-theme="dark"] .themebtn .sun { display: block; }
+  :root[data-theme="dark"] .themebtn .moon { display: none; }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .themebtn .sun { display: block; }
+    :root:where(:not([data-theme="light"])) .themebtn .moon { display: none; }
+  }
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+
+  <div class="themebar">
+    <button class="themebtn" id="themebtn" type="button" aria-label="Switch between light and dark theme">
+      <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.2M12 19.2v2.2M4.5 4.5l1.6 1.6M17.9 17.9l1.6 1.6M2.6 12h2.2M19.2 12h2.2M4.5 19.5l1.6-1.6M17.9 6.1l1.6-1.6"/></svg>
+      <span>Theme</span>
+    </button>
+  </div>
+
+
+  <div class="disclaimer">
+    <strong>Design mockup.</strong> An unaffiliated redesign concept for discussion. Not produced,
+    reviewed, or endorsed by United Way of the Plains or the Coalition to End Homelessness, and not a
+    live data source. Figures are transcribed from the Coalition's published 2026 State of Homelessness
+    Report and public dashboard; cite those, not this page.
+  </div>
+
+  <header class="masthead">
+    <div class="rule"></div>
+    <p class="eyebrow">Coalition to End Homelessness &middot; Wichita &amp; Sedgwick County</p>
+    <h1>State of Homelessness</h1>
+    <p class="sub">
+      The cost of the basics has outrun what working families earn, and more households are losing
+      housing than at any point in six years. This is what that looks like in Sedgwick County, and what
+      the Coalition's 25 member agencies do about it.
+    </p>
+  </header>
+
+  <!-- ================= THE RESPONSE ================= -->
+  <section class="card">
+    <p class="period">2025 &middot; Coalition partners</p>
+    <div class="hero">
+      <div>
+        <div class="hero-fig">5,082</div>
+        <p class="hero-lab">people were served by Coalition partners last year, across 84,079 individual services</p>
+      </div>
+      <div class="tiles">
+        <div class="tile"><span class="val">3,358</span><span class="lab">people housed or exited homelessness</span></div>
+        <div class="tile"><span class="val">1,360</span><span class="lab">exited to positive housing outcomes</span></div>
+        <div class="tile"><span class="val">565</span><span class="lab">people in priority populations reviewed at weekly case conferencing</span></div>
+      </div>
+    </div>
+    <p class="note">
+      Twenty-five member agencies work a single coordinated pathway: outreach, shelter, wraparound
+      services, permanent housing, then ongoing support. Case conferencing is a weekly multi-agency
+      meeting that works individual barriers to housing, person by person.
+    </p>
+    <p class="src">Source: 2026 State of Homelessness Report, 2025 outcomes.</p>
+  </section>
+
+  <!-- ================= HOW WELL IT WORKS ================= -->
+  <div class="sec-head">
+    <h2>How well the system works</h2>
+    <p>Two things the Coalition controls directly: how long someone stays homeless once they enter the system, and whether housing holds afterward.</p>
+  </div>
+
+  <div class="grid">
+
+    <section class="card">
+      <p class="period">Average length of homelessness</p>
+      <h3>People move through here three times faster</h3>
+      <div class="bars">
+        <div class="bar-row">
+          <span class="cat">Sedgwick County</span>
+          <span class="bar-track"><span class="bar-fill" style="width:29%" data-tip="Sedgwick County: 51 days on average"></span></span>
+          <span class="val">51</span>
+        </div>
+        <div class="bar-row">
+          <span class="cat">National average</span>
+          <span class="bar-track"><span class="bar-fill unk" style="width:100%" data-tip="National average, 2024: 176 days"></span></span>
+          <span class="val">176</span>
+        </div>
+      </div>
+      <p class="note">
+        Days spent homeless, on average. The national figure is for 2024, from HUD's Longitudinal
+        Systems Analysis. Shorter is the whole point: every day someone spends homeless is a day of
+        compounding harm and a day a shelter bed is unavailable to somebody else.
+      </p>
+      <p class="src">Source: 2026 State of Homelessness Report; 2025 HUD Longitudinal Systems Analysis.</p>
+    </section>
+
+    <section class="card">
+      <p class="period">Two years after support ends</p>
+      <h3>Housing holds</h3>
+      <div class="stack-lab"><span><b>82%</b> of people housed are still housed</span><span>two years on</span></div>
+      <div class="stack" role="img" aria-label="82 percent of people housed by the Coalition are still housed two years after support ends">
+        <span style="width:82%;background:var(--s1)" data-tip="Still housed after two years: 82%"></span>
+        <span style="width:18%;background:var(--ord-1)" data-tip="Not retained: 18%"></span>
+      </div>
+      <p class="note">
+        Rehousing that does not hold is not an outcome, it is a delay. Measuring retention two years
+        after support ends is a harder test than counting placements, and the Coalition publishes it.
+      </p>
+      <div class="callout">
+        <span class="big">Recognized for data quality in 2026</span>
+        <span class="cl">
+          Community Solutions confirmed the Coalition can identify at least 90% of single adults
+          experiencing homelessness in Sedgwick County by name and by need. Knowing who is out there is
+          the first step to ending their homelessness, and most communities cannot do it.
+        </span>
+      </div>
+      <p class="src">Source: 2026 State of Homelessness Report.</p>
+    </section>
+
+  </div>
+
+  <!-- ================= INFLOW / OUTFLOW ================= -->
+  <div class="sec-head">
+    <h2>Moving people out, faster than they arrive</h2>
+    <p>The Coalition reaches functional zero when more people leave homelessness in a year than enter it. Veterans are already there. Countywide, the gap is closing against a rising tide.</p>
+  </div>
+
+  <div class="grid">
+
+    <section class="card">
+      <p class="period">2025 &middot; everyone</p>
+      <h3>Countywide</h3>
+      <div class="bars">
+        <div class="bar-row">
+          <span class="cat">Housed or exited</span>
+          <span class="bar-track"><span class="bar-fill" style="width:93.9%" data-tip="3,358 people were housed or exited in 2025"></span></span>
+          <span class="val">3,358</span>
+        </div>
+        <div class="bar-row">
+          <span class="cat">Became homeless</span>
+          <span class="bar-track"><span class="bar-fill alt" style="width:100%" data-tip="3,577 people became homeless in 2025, first time and returning"></span></span>
+          <span class="val">3,577</span>
+        </div>
+      </div>
+      <div class="callout">
+        <span class="big">3,358 people left homelessness last year. Inflow ran 219 ahead.</span>
+        <span class="cl">
+          The gap is not a throughput problem. Households becoming homeless for the first time are up
+          147% since 2020, driven by housing costs the Coalition does not set. Exits include temporary
+          destinations such as family, friends, hospitals and jail.
+        </span>
+      </div>
+      <p class="src">Source: 2026 State of Homelessness Report, inflow and outflow, 2025.</p>
+    </section>
+
+    <section class="card">
+      <p class="period">2025 &middot; veterans</p>
+      <h3>Where it is already working</h3>
+      <div class="bars">
+        <div class="bar-row">
+          <span class="cat">Housed or exited</span>
+          <span class="bar-track"><span class="bar-fill" style="width:100%" data-tip="205 veterans were housed or exited in 2025"></span></span>
+          <span class="val">205</span>
+        </div>
+        <div class="bar-row">
+          <span class="cat">Became homeless</span>
+          <span class="bar-track"><span class="bar-fill alt" style="width:96.1%" data-tip="197 veterans became homeless in 2025"></span></span>
+          <span class="val">197</span>
+        </div>
+      </div>
+      <div class="callout">
+        <span class="big">8 more veterans were housed than became homeless</span>
+        <span class="cl">
+          This is what functional zero looks like in practice. Homes for Heroes runs with the City of
+          Wichita, the Robert J. Dole VA Medical Center and Sedgwick County, and it is the model the
+          Coalition is working to extend to everyone else.
+        </span>
+      </div>
+      <p class="src">Source: 2026 State of Homelessness Report, veterans inflow and outflow, 2025.</p>
+    </section>
+
+  </div>
+
+  <!-- ================= THE CENSUS ================= -->
+  <div class="sec-head">
+    <h2>The January census</h2>
+    <p>A one-night count, taken every year, required by HUD. It measures conditions rather than performance.</p>
+  </div>
+
+  <section class="card">
+    <p class="period">2026 Point-in-Time Count &middot; night of 29 January 2026</p>
+    <div class="hero">
+      <div>
+        <div class="hero-fig">859</div>
+        <p class="hero-lab">people were experiencing homelessness on a single night in January</p>
+        <p class="delta"><b>+123 more than 2025</b> <span>&middot; a 16.7% rise</span></p>
+      </div>
+      <div>
+        <div class="cols c3">
+          <div class="col">
+            <span class="cap">691</span>
+            <span class="plot"><span class="stem stacked" style="height:76.8%">
+              <span style="height:calc(27.2% - 1px);background:var(--s2)" data-tip="2024 unsheltered: 188 people"></span>
+              <span style="height:calc(72.8% - 1px);background:var(--s1)" data-tip="2024 sheltered: 503 people"></span>
+            </span></span>
+          </div>
+          <div class="col">
+            <span class="cap">736</span>
+            <span class="plot"><span class="stem stacked" style="height:81.8%">
+              <span style="height:calc(26.5% - 1px);background:var(--s2)" data-tip="2025 unsheltered: 195 people"></span>
+              <span style="height:calc(73.5% - 1px);background:var(--s1)" data-tip="2025 sheltered: 541 people"></span>
+            </span></span>
+          </div>
+          <div class="col">
+            <span class="cap">859</span>
+            <span class="plot"><span class="stem stacked" style="height:95.4%">
+              <span style="height:calc(25.8% - 1px);background:var(--s2)" data-tip="2026 unsheltered: 222 people"></span>
+              <span style="height:calc(74.2% - 1px);background:var(--s1)" data-tip="2026 sheltered: 637 people"></span>
+            </span></span>
+          </div>
+        </div>
+        <div class="axis c3"><span>2024</span><span>2025</span><span>2026</span></div>
+        <div class="legend" style="margin-top:.7rem">
+          <span class="item"><span class="swatch" style="background:var(--s1)"></span> Sheltered</span>
+          <span class="item"><span class="swatch" style="background:var(--s2)"></span> Unsheltered</span>
+          <span class="item" style="color:var(--muted)">2026: <b>637</b> sheltered, <b>222</b> unsheltered</span>
+        </div>
+      </div>
+    </div>
+
+    <details class="tv">
+      <summary>Table view</summary>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Year</th><th>Sheltered</th><th>Unsheltered</th><th>Total</th></tr></thead>
+          <tbody>
+            <tr><td>2024</td><td class="n">503</td><td class="n">188</td><td class="n">691</td></tr>
+            <tr><td>2025</td><td class="n">541</td><td class="n">195</td><td class="n">736</td></tr>
+            <tr><td>2026</td><td class="n">637</td><td class="n">222</td><td class="n">859</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <p class="note">
+      Three quarters of the people counted were in shelter or transitional housing rather than outside,
+      which is what a functioning shelter system looks like on a freezing night. More than 120 volunteers
+      canvassed the county to survey people sleeping outside. Colder weather pushes more people into
+      shelter on count night, and better method and volunteer training also move the number, so
+      year-over-year change reflects both real conditions and better counting.
+    </p>
+    <p class="note">
+      For scale: in 2025 the local rate was <b>14 people per 10,000 residents</b>, against a national
+      rate of <b>23 per 10,000</b> in 2024.
+    </p>
+    <p class="src">Source: 2026 Point-in-Time Count, published in the 2026 State of Homelessness Report. Per capita figures from the 2025 count release and the 2025 HUD AHAR.</p>
+  </section>
+
+  <!-- ================= WHY IT IS RISING ================= -->
+  <div class="sec-head">
+    <h2>Why the number keeps rising</h2>
+    <p>The pressure driving people into homelessness sits upstream of anything a housing coalition can do. It is the price of rent, food, child care and transport against local wages.</p>
+  </div>
+
+  <section class="card">
+    <p class="period">2020 to 2025</p>
+    <h3>Households becoming homeless for the first time</h3>
+    <div class="cols c6">
+      <div class="col"><span class="cap">841</span><span class="plot"><span class="stem" style="height:38.2%" data-tip="2020: 841 newly homeless households"></span></span></div>
+      <div class="col"><span class="cap">1,086</span><span class="plot"><span class="stem" style="height:49.4%" data-tip="2021: 1,086 newly homeless households"></span></span></div>
+      <div class="col"><span class="cap">1,649</span><span class="plot"><span class="stem" style="height:75.0%" data-tip="2022: 1,649 newly homeless households"></span></span></div>
+      <div class="col"><span class="cap">1,430</span><span class="plot"><span class="stem" style="height:65.0%" data-tip="2023: 1,430 newly homeless households"></span></span></div>
+      <div class="col"><span class="cap">1,742</span><span class="plot"><span class="stem" style="height:79.2%" data-tip="2024: 1,742 newly homeless households"></span></span></div>
+      <div class="col"><span class="cap">2,077</span><span class="plot"><span class="stem" style="height:94.4%" data-tip="2025: 2,077 newly homeless households"></span></span></div>
+    </div>
+    <div class="axis c6"><span>2020</span><span>2021</span><span>2022</span><span>2023</span><span>2024</span><span>2025</span></div>
+    <div class="callout">
+      <span class="big">Up 147% in six years</span>
+      <span class="cl">From 841 households in 2020 to 2,077 in 2025. These are households entering homelessness for the first time, not returning to it.</span>
+    </div>
+    <p class="src">Source: 2026 State of Homelessness Report, newly homeless households.</p>
+  </section>
+
+  <div class="grid">
+    <section class="card">
+      <p class="period">Sedgwick County &middot; 2024</p>
+      <h3>What it costs to get by</h3>
+      <p class="note">
+        The ALICE survival budget is the bare minimum a family of four needs for housing, child care,
+        food, transport, health care and basic technology.
+      </p>
+      <div class="tiles">
+        <div class="tile"><span class="val">$76,512</span><span class="lab">survival budget for a family of four</span></div>
+        <div class="tile"><span class="val">$70,833</span><span class="lab">median household income</span></div>
+      </div>
+      <div class="callout">
+        <span class="big">The bare minimum costs $5,679 more than the typical household earns</span>
+        <span class="cl">A stability budget, which allows any saving at all, costs $128,124 a year. This is the gap that produces the chart above.</span>
+      </div>
+      <p class="src">Source: 2026 State of ALICE in Kansas Report. ALICE: Asset Limited, Income Constrained, Employed.</p>
+    </section>
+
+    <section class="card">
+      <p class="period">Sedgwick County &middot; 2024</p>
+      <h3>Households below the ALICE threshold</h3>
+      <div class="stack-lab"><span><b>80,224 households</b> cannot cover the basics</span><span>38%</span></div>
+      <div class="stack" role="img" aria-label="27,445 households in poverty, 52,779 ALICE households, 130,892 above the threshold">
+        <span style="width:13.0%;background:var(--ord-3)" data-tip="In poverty: 27,445 households, 13.0%"></span>
+        <span style="width:25.0%;background:var(--ord-2)" data-tip="ALICE, above poverty but below the cost of basics: 52,779 households, 25.0%"></span>
+        <span style="width:62.0%;background:var(--ord-1)" data-tip="Above the ALICE threshold: 130,892 households, 62.0%"></span>
+      </div>
+      <div class="legend">
+        <span class="item"><span class="swatch" style="background:var(--ord-3)"></span> In poverty <b>27,445</b></span>
+        <span class="item"><span class="swatch" style="background:var(--ord-2)"></span> ALICE <b>52,779</b></span>
+        <span class="item"><span class="swatch" style="background:var(--ord-1)"></span> Above threshold <b>130,892</b></span>
+      </div>
+      <p class="note">
+        ALICE households earn above the federal poverty level but less than the cost of necessities.
+        They are cashiers, cleaners, truck drivers and health aides.
+      </p>
+      <p class="src">Source: 2026 State of ALICE in Kansas Report.</p>
+    </section>
+  </div>
+
+  <section class="card">
+    <p class="period">Sedgwick County &middot; 2024</p>
+    <h3>Housing cost burden among ALICE households</h3>
+    <p class="note">
+      A household is cost burdened when housing takes 30% or more of its income, and severely burdened
+      at 50% or more.
+    </p>
+
+    <div style="display:flex;flex-direction:column;gap:1rem">
+      <div>
+        <div class="stack-lab"><span>Owners</span><span><b>44%</b> burdened or worse</span></div>
+        <div class="stack" role="img" aria-label="Owners: 9,840 severely burdened, 7,466 burdened, 22,248 not burdened">
+          <span style="width:24.9%;background:var(--ord-3)" data-tip="Owners severely burdened: 9,840 households, 24.9%"></span>
+          <span style="width:18.9%;background:var(--ord-2)" data-tip="Owners burdened: 7,466 households, 18.9%"></span>
+          <span style="width:56.2%;background:var(--ord-1)" data-tip="Owners not burdened: 22,248 households, 56.2%"></span>
+        </div>
+      </div>
+      <div>
+        <div class="stack-lab"><span>Renters</span><span><b>62%</b> burdened or worse</span></div>
+        <div class="stack" role="img" aria-label="Renters: 15,451 severely burdened, 11,724 burdened, 16,851 not burdened">
+          <span style="width:35.1%;background:var(--ord-3)" data-tip="Renters severely burdened: 15,451 households, 35.1%"></span>
+          <span style="width:26.6%;background:var(--ord-2)" data-tip="Renters burdened: 11,724 households, 26.6%"></span>
+          <span style="width:38.3%;background:var(--ord-1)" data-tip="Renters not burdened: 16,851 households, 38.3%"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <span class="item"><span class="swatch" style="background:var(--ord-3)"></span> Severely burdened</span>
+      <span class="item"><span class="swatch" style="background:var(--ord-2)"></span> Burdened</span>
+      <span class="item"><span class="swatch" style="background:var(--ord-1)"></span> Not burdened</span>
+    </div>
+
+    <details class="tv">
+      <summary>Table view</summary>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Tenure</th><th>Severely burdened</th><th>Burdened</th><th>Not burdened</th></tr></thead>
+          <tbody>
+            <tr><td>Owners</td><td class="n">9,840</td><td class="n">7,466</td><td class="n">22,248</td></tr>
+            <tr><td>Renters</td><td class="n">15,451</td><td class="n">11,724</td><td class="n">16,851</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+    <p class="src">Source: 2026 State of ALICE in Kansas Report, ALICE households in Sedgwick County.</p>
+  </section>
+
+  <!-- ================= RIGHT NOW ================= -->
+  <div class="sec-head">
+    <h2>Who is homeless right now</h2>
+    <p>A live view from the shared database Coalition partners record into, refreshed each quarter.</p>
+  </div>
+
+  <section class="card">
+    <p class="period">Active in HMIS &middot; January to March 2026</p>
+    <div class="hero">
+      <div>
+        <div class="hero-fig">1,263</div>
+        <p class="hero-lab">people were actively experiencing homelessness on the last day of the quarter</p>
+      </div>
+      <div class="tiles">
+        <div class="tile"><span class="val">197</span><span class="lab">in family households</span></div>
+        <div class="tile"><span class="val">135</span><span class="lab">in youth households</span></div>
+        <div class="tile"><span class="val">59</span><span class="lab">family households</span></div>
+      </div>
+    </div>
+    <p class="note">
+      Counts anyone with a live enrollment in emergency shelter, coordinated entry, permanent housing,
+      rapid rehousing, street outreach or transitional housing on 31 March 2026 who has no move-in date
+      and has not exited to permanent housing. Each person is counted once. A larger number than the
+      January census because it covers a quarter rather than a single night.
+    </p>
+  </section>
+
+  <div class="grid">
+    <section class="card">
+      <p class="period">January to March 2026</p>
+      <h3>Race and ethnicity</h3>
+      <div class="bars">
+        <div class="bar-row">
+          <span class="cat">White</span>
+          <span class="bar-track"><span class="bar-fill" style="width:100%" data-tip="White: 679 people, 53.8%"></span></span>
+          <span class="val">679</span>
+        </div>
+        <div class="bar-row">
+          <span class="cat">Black or African American</span>
+          <span class="bar-track"><span class="bar-fill" style="width:50.5%" data-tip="Black or African American: 343 people, 27.2%"></span></span>
+          <span class="val">343</span>
+        </div>
+        <div class="bar-row">
+          <span class="cat">Multi-racial</span>
+          <span class="bar-track"><span class="bar-fill" style="width:20.9%" data-tip="Multi-racial: 142 people, 11.2%"></span></span>
+          <span class="val">142</span>
+        </div>
+        <div class="bar-row">
+          <span class="cat">All other categories</span>
+          <span class="bar-track"><span class="bar-fill" style="width:14.6%" data-tip="All other categories combined: 99 people, 7.8%"></span></span>
+          <span class="val">99</span>
+        </div>
+      </div>
+      <p class="src">Source: Coalition HMIS. Categories below 3% are combined here pending a named breakdown.</p>
+    </section>
+
+    <section class="card">
+      <p class="period">January to March 2026</p>
+      <h3>Where people are staying</h3>
+      <div class="stack" role="img" aria-label="720 sheltered, 322 unsheltered, 108 doubled up, 113 other or unknown, of 1,263 people">
+        <span style="width:57.0%;background:var(--s1)" data-tip="Sheltered: 720 people, 57.0%"></span>
+        <span style="width:25.5%;background:var(--s2)" data-tip="Unsheltered: 322 people, 25.5%"></span>
+        <span style="width:8.6%;background:var(--s3)" data-tip="Doubled up or couch surfing: 108 people, 8.6%"></span>
+        <span style="width:8.9%;background:var(--unknown)" data-tip="Other or unknown: 113 people, 8.9%"></span>
+      </div>
+      <div class="legend">
+        <span class="item"><span class="swatch" style="background:var(--s1)"></span> Sheltered <b>720</b></span>
+        <span class="item"><span class="swatch" style="background:var(--s2)"></span> Unsheltered <b>322</b></span>
+        <span class="item"><span class="swatch" style="background:var(--s3)"></span> Doubled up <b>108</b></span>
+        <span class="item"><span class="swatch" style="background:var(--unknown)"></span> Other or unknown <b>113</b></span>
+      </div>
+      <details class="tv">
+        <summary>Table view</summary>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Status</th><th>People</th><th>Share</th></tr></thead>
+            <tbody>
+              <tr><td>Sheltered</td><td class="n">720</td><td class="n">57.0%</td></tr>
+              <tr><td>Unsheltered</td><td class="n">322</td><td class="n">25.5%</td></tr>
+              <tr><td>Doubled up or couch surfing</td><td class="n">108</td><td class="n">8.6%</td></tr>
+              <tr><td>Other or unknown</td><td class="n">113</td><td class="n">8.9%</td></tr>
+              <tr><td><b>Total</b></td><td class="n"><b>1,263</b></td><td class="n"><b>100%</b></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+      <p class="src">Source: Coalition HMIS, active enrollments on 31 March 2026.</p>
+    </section>
+  </div>
+
+  <!-- ================= WHO ================= -->
+  <div class="sec-head">
+    <h2>Who is most affected</h2>
+    <p>The make-up of the unhoused population has shifted over five years, and not evenly.</p>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <p class="period">2020 compared with 2025</p>
+      <h3>Age of unhoused neighbors</h3>
+      <div class="dumb">
+        <div class="dumb-row">
+          <span class="cat">Adults 25&ndash;64</span>
+          <span class="dtrack">
+            <span class="conn" style="left:86.7%;right:4.7%"></span>
+            <span class="dot a" style="left:86.7%" data-tip="Adults 25 to 64 in 2020: 65.0%"></span>
+            <span class="dot b" style="left:95.3%" data-tip="Adults 25 to 64 in 2025: 71.5%"></span>
+          </span>
+          <span class="chg"><span class="from">65.0%&nbsp;&rarr;</span> 71.5%</span>
+        </div>
+        <div class="dumb-row">
+          <span class="cat">Children under 18</span>
+          <span class="dtrack">
+            <span class="conn" style="left:16.5%;right:69.6%"></span>
+            <span class="dot a" style="left:30.4%" data-tip="Children under 18 in 2020: 22.8%"></span>
+            <span class="dot b" style="left:16.5%" data-tip="Children under 18 in 2025: 12.4%"></span>
+          </span>
+          <span class="chg"><span class="from">22.8%&nbsp;&rarr;</span> 12.4%</span>
+        </div>
+        <div class="dumb-row">
+          <span class="cat">Youth 18&ndash;24</span>
+          <span class="dtrack">
+            <span class="conn" style="left:12.0%;right:87.1%"></span>
+            <span class="dot a" style="left:12.0%" data-tip="Youth 18 to 24 in 2020: 9.0%"></span>
+            <span class="dot b" style="left:12.9%" data-tip="Youth 18 to 24 in 2025: 9.7%"></span>
+          </span>
+          <span class="chg"><span class="from">9.0%&nbsp;&rarr;</span> 9.7%</span>
+        </div>
+        <div class="dumb-row">
+          <span class="cat">Seniors 65+</span>
+          <span class="dtrack">
+            <span class="conn" style="left:4.1%;right:91.6%"></span>
+            <span class="dot a" style="left:4.1%" data-tip="Seniors 65 and over in 2020: 3.1%"></span>
+            <span class="dot b" style="left:8.4%" data-tip="Seniors 65 and over in 2025: 6.3%"></span>
+          </span>
+          <span class="chg"><span class="from">3.1%&nbsp;&rarr;</span> 6.3%</span>
+        </div>
+      </div>
+      <div class="legend">
+        <span class="item"><span class="swatch" style="background:var(--surface);border:3px solid var(--past);border-radius:50%;width:11px;height:11px"></span> 2020</span>
+        <span class="item"><span class="swatch" style="background:var(--s1);border-radius:50%;width:11px;height:11px"></span> 2025</span>
+      </div>
+      <div class="callout">
+        <span class="big">The unhoused senior population doubled</span>
+        <span class="cl">Everyday costs rose 25.3% across the Midwest from 2020 to 2025, and 30% of Sedgwick County residents live on a fixed Social Security income.</span>
+      </div>
+      <p class="src">Source: 2026 State of Homelessness Report, age demographics. Shares of all unhoused individuals.</p>
+    </section>
+
+    <section class="card">
+      <p class="period">2023 to 2025</p>
+      <h3>Reporting a disabling condition at intake</h3>
+      <div class="cols c3" style="height:190px">
+        <div class="col"><span class="cap">54%</span><span class="plot"><span class="stem" style="height:54%" data-tip="2023: 54% reported a disabling condition at intake"></span></span></div>
+        <div class="col"><span class="cap">49%</span><span class="plot"><span class="stem" style="height:49%" data-tip="2024: 49% reported a disabling condition at intake"></span></span></div>
+        <div class="col"><span class="cap">45%</span><span class="plot"><span class="stem" style="height:45%" data-tip="2025: 45% reported a disabling condition at intake"></span></span></div>
+      </div>
+      <div class="axis c3"><span>2023</span><span>2024</span><span>2025</span></div>
+      <p class="note">
+        A falling share means more people are entering homelessness because of general economic
+        conditions rather than an inability to work. The population is not getting healthier; it is
+        getting broader.
+      </p>
+      <p class="src">Source: 2026 State of Homelessness Report, disabling conditions reported at intake.</p>
+    </section>
+  </div>
+
+  <!-- ================= FUNDING ================= -->
+  <section class="card">
+    <p class="period">2025</p>
+    <h3>What pays for this</h3>
+    <div class="tiles">
+      <div class="tile"><span class="val">$3.2M</span><span class="lab">in HUD Continuum of Care funding secured by United Way on behalf of the Coalition</span></div>
+      <div class="tile"><span class="val">25</span><span class="lab">member agencies delivering services</span></div>
+      <div class="tile"><span class="val">205</span><span class="lab">veterans housed through Homes for Heroes</span></div>
+      <div class="tile"><span class="val">16</span><span class="lab">board members, including people with lived experience</span></div>
+    </div>
+    <p class="src">Source: 2026 State of Homelessness Report and Coalition 2025 outcomes.</p>
+  </section>
+
+  <!-- ================= GO DEEPER ================= -->
+  <div class="sec-head">
+    <h2>Go deeper</h2>
+    <p>The full report and the interactive dashboard, for partners, researchers and grant writers.</p>
+  </div>
+
+  <div class="links">
+    <a class="lnk" href="https://unitedwayplains.org/download/251/coalition-to-end-homelessness/27499/2026-state-of-homelessness-report_final">
+      <span class="t">2026 State of Homelessness Report</span>
+      <span class="d">The full eight-page report, including ALICE budgets and emerging trends. PDF.</span>
+    </a>
+    <div class="lnk static">
+      <span class="t">Ask for something specific</span>
+      <span class="d">Matt Lowe, Director of Community Impact<br>endhomelessness@unitedwayplains.org<br>(316) 267-1321 ext. 4233</span>
+    </div>
+  </div>
+
+  <!-- ================= GLOSSARY ================= -->
+  <section class="card">
+    <h3>How to read these numbers</h3>
+    <div class="tablewrap">
+      <table>
+        <tbody>
+          <tr><td style="width:12rem"><b>Point-in-Time count</b></td><td>A one-night census taken each January, required by HUD. It measures conditions on that night, not how well the response is working. Always smaller than the number of people served over a period.</td></tr>
+          <tr><td><b>People served</b></td><td>Everyone who received shelter, outreach, or housing services from a Coalition partner during the year.</td></tr>
+          <tr><td><b>Inflow and outflow</b></td><td>How many people became homeless in a year against how many were housed or exited. Functional zero is reached when outflow exceeds inflow.</td></tr>
+          <tr><td><b>Actively homeless</b></td><td>Someone with a live HMIS enrollment on the last day of the period who has no move-in date and has not exited to permanent housing.</td></tr>
+          <tr><td><b>Household</b></td><td>One or more people living together who intend to stay together once housed. A family household includes children; a youth household's oldest member is 18 to 24.</td></tr>
+          <tr><td><b>Cost burdened</b></td><td>Spending 30% or more of household income on housing. Severely burdened is 50% or more.</td></tr>
+          <tr><td><b>ALICE</b></td><td>Asset Limited, Income Constrained, Employed. Households earning above the federal poverty level but below the cost of necessities.</td></tr>
+          <tr><td><b>HMIS</b></td><td>Homeless Management Information System, the shared database Coalition partners record into.</td></tr>
+          <tr><td><b>Programs counted</b></td><td>Emergency shelter, coordinated entry, permanent housing, rapid rehousing, street outreach and transitional housing.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</div>
+
+<div id="tip" role="status" aria-live="off"></div>
+
+<script>
+  var tip = document.getElementById('tip');
+  function place(e) {
+    var pad = 12, x = e.clientX + pad, y = e.clientY + pad, r = tip.getBoundingClientRect();
+    if (x + r.width > window.innerWidth - 8) x = e.clientX - r.width - pad;
+    if (y + r.height > window.innerHeight - 8) y = e.clientY - r.height - pad;
+    tip.style.left = x + 'px'; tip.style.top = y + 'px';
+  }
+  document.addEventListener('pointerover', function (e) {
+    var t = e.target.closest('[data-tip]');
+    if (!t) return;
+    tip.textContent = t.getAttribute('data-tip');
+    tip.classList.add('on'); place(e);
+  });
+  document.addEventListener('pointermove', function (e) { if (tip.classList.contains('on')) place(e); });
+  document.addEventListener('pointerout', function (e) { if (e.target.closest('[data-tip]')) tip.classList.remove('on'); });
+</script>
+<script>
+  (function () {
+    var btn = document.getElementById('themebtn');
+    function current() {
+      var set = document.documentElement.getAttribute('data-theme');
+      if (set) return set;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    btn.addEventListener('click', function () {
+      var next = current() === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      try { localStorage.setItem('theme', next); } catch (e) {}
+    });
+  })();
+</script>
+</body>
+</html>
