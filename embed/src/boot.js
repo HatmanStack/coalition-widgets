@@ -106,7 +106,6 @@ function attrs(tag) {
       widgets,
       theme: oneOf("data-theme", "auto"),
       size: oneOf("data-size", "auto"),
-      variant: oneOf("data-variant", "auto"),
       layout: oneOf("data-layout", "cards"),
       table: oneOf("data-table", "true") !== "false",
       titles: oneOf("data-titles", "true") !== "false",
@@ -318,7 +317,6 @@ function mountPane(host, options, problems) {
           ? "Showing the last figures received. A refresh failed."
           : null,
         showTable: options.table,
-        variant: options.variant,
         dense,
         years: options.years,
         segment: options.segment,
@@ -352,13 +350,18 @@ function mountPane(host, options, problems) {
       }
     }
 
-    /* Both layouts. This used to be dense-only, on the reasoning that a card might be embedded
-       alone and should carry its own attribution — but a pane always has a footer, and for a
-       single card that footer sits directly beneath it, so nothing is lost. What is gained is
-       that three cards from three cadences no longer each whisper their own date: the pane
-       states them together, where a reader can see that a March figure is sitting beside a
-       January one. */
-    if (rendered && options.variant !== "figure-only") {
+    /* Both layouts, and unconditionally. This used to be dense-only, on the reasoning that a
+       card might be embedded alone and should carry its own attribution — but a pane always has
+       a footer, and for a single card that footer sits directly beneath it, so nothing is lost.
+       What is gained is that three cards from three cadences no longer each whisper their own
+       date: the pane states them together, where a reader can see that a March figure is sitting
+       beside a January one.
+
+       `data-variant="figure-only"` used to skip this. That made the source and disclaimer line
+       switchable from the tag, which is the one thing this project says is not — and no widget
+       ever read `variant` for anything else, so the parameter's only effect was the prohibited
+       one. Removed rather than narrowed. */
+    if (rendered) {
       const periods = [];
       for (const cadence of shown) {
         const data = files.get(cadence)?.data;

@@ -18,7 +18,12 @@ export const WHAT = {
   queue:
     "The housing queue: how many people are waiting, how many are in groups such as veterans or unaccompanied youth, and how long people have been waiting. Every figure is a count of a group, never a person.",
   "race-ethnicity": "Who is experiencing homelessness, by race and ethnicity.",
-  county: "Where people are, by county.",
+  /* Not where people are. Everyone counted is in Sedgwick County; this is the county they
+     lived in before that, whatever it was. "Where people are, by county" said the opposite
+     and said it on the card heading, so a reader saw a map of a population that is not
+     spread out at all. */
+  county:
+    "Which county people lived in before. Everyone counted is in Sedgwick County now, so this is where they came from, not where they are.",
   "shelter-status":
     "Where people are staying: shelter, transitional housing, or unsheltered.",
   "pit-trend":

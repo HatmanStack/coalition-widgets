@@ -12,7 +12,6 @@ export const ALLOWED = {
 
   "data-theme": ["auto", "light", "dark"],
   "data-size": ["auto", ...Object.keys(SCALES)],
-  "data-variant": ["auto", "figure-only"],
   // Two layouts, neither of them the right one. `cards` gives each statistic a card of its own
   // with its own period, callout and attribution — a story down a page, which is what a partner
   // dropping three widgets into a post wants. `dashboard` packs figures several across with

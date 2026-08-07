@@ -545,7 +545,7 @@ export const CATALOGUE = {
   ),
   county: on(
     "quarterly",
-    breakdownWidget("county", "Where people are, by county", "bars"),
+    breakdownWidget("county", "Where people came from", "bars"),
   ),
   "shelter-status": on(
     "quarterly",

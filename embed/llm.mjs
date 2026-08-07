@@ -107,7 +107,6 @@ export function llmText({ origin, manifest, catalogue, names, allowed }) {
     ["data-theme", allowed["data-theme"].join(" | "), "auto"],
     ["data-size", allowed["data-size"].join(" | "), "auto"],
     ["data-layout", allowed["data-layout"].join(" | "), "cards"],
-    ["data-variant", allowed["data-variant"].join(" | "), "auto"],
     ["data-table", allowed["data-table"].join(" | "), "true"],
     ["data-titles", allowed["data-titles"].join(" | "), "true"],
     ["data-years", "a whole number, 1 or more", "every published year"],

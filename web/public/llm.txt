@@ -163,7 +163,9 @@ comma are ignored, so neither is ever the fault. A name listed twice renders twi
                          needs breakdowns.raceEthnicity
                          affected by: data-table, data-titles
 
-    county               Where people are, by county.
+    county               Which county people lived in before. Everyone counted is in Sedgwick
+                         County now, so this is where they came from, not where they are. Do not
+                         describe it as a geographic spread of the population.
                          updates quarterly · reads quarterly.json
                          needs breakdowns.county
                          affected by: data-table, data-titles
@@ -256,12 +258,6 @@ data-layout
                 centres the figures, and is what a wallboard wants.
     if wrong    CHC-02
 
-data-variant
-    values      auto | figure-only
-    default     auto
-    changes     figure-only drops the pane footer — both the period line and the source line
-    if wrong    CHC-02
-
 data-table
     values      true | false
     default     true
@@ -326,7 +322,7 @@ CHC-02  An attribute has a value that is not allowed, or the tag carries no data
         reads   data-theme="drak" is not valid. Allowed: auto, light, dark.
                 No data-widgets on the script tag. Allowed: hmis-snapshot, active-count, …
         causes  a typo in the value; a value borrowed from another attribute (dashboard is
-                data-layout, not data-variant); yes/no/1/0 where true/false is meant; a word
+                data-layout, not data-size); yes/no/1/0 where true/false is meant; a word
                 where data-years wants a number; a malformed selector in data-target; and the
                 case below, which is not about the value at all.
         note    if the card says there is no data-widgets while their tag clearly has one, and
@@ -428,10 +424,6 @@ WHY:  The space reserved before the figures arrive. Still showing means the requ
       back either way — one that failed would have been replaced by CHC-03.
 DO:   nothing on the tag. Check the page is allowed to reach the data host.
 
-SEE:  No date and no source line under the widgets.
-WHY:  data-variant="figure-only" drops the pane footer, which is where both of them live.
-DO:   remove data-variant, or set it to auto
-
 SEE:  Every widget appears twice.
 WHY:  The tag is on the page twice — commonly once in a site-wide template and once in the page
       body. Each tag is its own pane.
@@ -528,9 +520,11 @@ console line if they send one.
         Compiled into the bundle. This is what lets a site allow one fixed address in its content
         security policy.
 
-    The wording of the source and disclaimer line
-        Fixed. These figures are published as unaffiliated concept work and the attribution
-        travels with them.
+    The source and disclaimer line
+        Fixed, and not removable. It is drawn under every pane, on every layout, with no
+        attribute that suppresses it. These figures are published as unaffiliated concept work
+        and the attribution travels with them. If someone asks how to take it off, the answer is
+        that there is no way to and it is not an oversight.
 
     Fonts
         Inherited from the page automatically. Nothing to set.
@@ -582,7 +576,7 @@ The last five years of the January census, without the table:
 
     the src and integrity are theirs, unaltered, and both from the same build
     crossorigin="anonymous" and defer are still on it
-    every data- attribute is one of the ten in this document
+    every data- attribute is one of the nine in this document
     every widget name is one of the thirteen, spelled exactly
     every value is from that attribute's allowed list
     every setting from their settings line survives, not only the one you fixed

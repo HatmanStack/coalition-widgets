@@ -99,14 +99,13 @@ same cadence each ask for that file and the browser's cache answers the second.
 | `data-theme`   | `auto` `light` `dark`                                   | `auto`, measured from the page |
 | `data-size`    | `auto` `xs` `sm` `md` `lg` `xl`                         | `auto`, from container width   |
 | `data-layout`  | `cards` `dashboard`                                     | `cards`                        |
-| `data-variant` | `auto` `figure-only`                                    | `auto`                         |
 | `data-table`   | `true` `false`                                          | `true`                         |
 | `data-titles`  | `true` `false`                                          | `true`                         |
 | `data-years`   | whole number, 1 or more                                 | the full published span        |
 | `data-segment` | whichever the payload carries; `all` always works       | `all`                          |
 | `data-target`  | CSS selector for an element already on the page         | where the tag sits             |
 
-Ten, and the list is closed. `data-years` applies to `pit-trend` and `newly-homeless`,
+Nine, and the list is closed. `data-years` applies to `pit-trend` and `newly-homeless`,
 `data-segment` to `inflow-outflow`; both are ignored elsewhere.
 
 Any other value is refused and named on the page rather than quietly swapped for the default —
@@ -123,7 +122,7 @@ Freshest first.
 | `hmis-snapshot`  | quarterly | the whole quarterly dashboard in one card            |
 | `active-count`   | quarterly | people actively experiencing homelessness            |
 | `race-ethnicity` | quarterly | sorted bars                                          |
-| `county`         | quarterly | where people are, by county                          |
+| `county`         | quarterly | the county people lived in before, not where they are |
 | `shelter-status` | quarterly | 100% stacked bar                                     |
 | `pit-trend`      | annual    | the January census, sheltered against unsheltered    |
 | `newly-homeless` | annual    | households becoming homeless each year               |

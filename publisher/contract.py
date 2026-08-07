@@ -96,12 +96,15 @@ BREAKDOWNS = (
         "hmis_active.persons_active",
         "activelyHomeless",
     ),
-    # Where people are, by county.
+    # The county a person lived in BEFORE, not where they are. Everyone counted is in Sedgwick
+    # County; this breaks that population down by where they came from.
     #
     # This is the breakdown most likely to arrive disclosive, and the reason the small-cell rule
     # exists at all: the published dashboard this project started from showed nine counties
     # holding exactly one person each, which in a rural county is a name. A long tail of ones and
-    # twos is the normal shape of county data here, not an anomaly.
+    # twos is the normal shape of county data here, not an anomaly. Origin makes that worse, not
+    # better — one person who left a small rural county for Sedgwick is more findable there than
+    # a resident of it would be, because the county they left knows who went.
     #
     # So the derived table must fold everything under MIN_CELL into "All other counties" before
     # it reaches this publisher. `check` refuses the payload otherwise, and refusing is the
