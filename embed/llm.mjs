@@ -38,7 +38,7 @@ function tagFor(origin, manifest, widgets) {
  * answer cannot tell it is wrong until it is on their live page. Saying plainly that the list is
  * closed, and that "I cannot tell from this" is an acceptable answer, is worth more than any
  * amount of description. */
-export function llmText({ origin, manifest, catalogue, names, allowed }) {
+export function llmText({ origin, manifest, catalogue, names, params }) {
   const L = [];
   const p = (...lines) => L.push(...lines);
 
@@ -104,11 +104,14 @@ export function llmText({ origin, manifest, catalogue, names, allowed }) {
       "one or more names from the list above, comma separated",
       "required",
     ],
-    ["data-theme", allowed["data-theme"].join(" | "), "auto"],
-    ["data-size", allowed["data-size"].join(" | "), "auto"],
-    ["data-layout", allowed["data-layout"].join(" | "), "cards"],
-    ["data-table", allowed["data-table"].join(" | "), "true"],
-    ["data-titles", allowed["data-titles"].join(" | "), "true"],
+    /* Values and defaults both from the registry. The defaults were typed out here, so this
+       table was a third place that knew them — after boot.js, which owned them, and the site,
+       which did not and therefore offered a choice with no consequence. */
+    ...Object.entries(params).map(([attr, spec]) => [
+      attr,
+      Object.keys(spec.values).join(" | "),
+      spec.default,
+    ]),
     ["data-years", "a whole number, 1 or more", "every published year"],
     ["data-segment", "a segment the data carries; all always works", "all"],
     [

@@ -66,13 +66,23 @@ export function useManifest() {
         /* A manifest without these is an older build, not an empty catalogue. Rendering a
            builder with no widgets and no parameters would look like the widgets had gone away;
            saying which build is being read is the difference between a puzzle and a fix. */
-        if (!manifest.params || !manifest.widgets) {
+        /* The shape, not just the presence. `params` used to be {attr: [values]} and is now
+           {attr: {default, values}}; read the old shape with the new code and every control
+           renders with no options at all and nothing thrown — `Array.prototype.values` is a
+           function, and Object.entries of a function is []. A silently empty control is the
+           worst outcome available here, so it is checked for by name. */
+        const shaped =
+          manifest.params &&
+          Object.values(manifest.params).every(
+            (spec) => spec && typeof spec === "object" && !Array.isArray(spec),
+          );
+        if (!manifest.params || !manifest.widgets || !shaped) {
           setState({
             status: "stale",
             manifest,
             detail:
-              "The manifest at this origin predates the registry being published into it. " +
-              "Redeploy the widget bundle and this page fills itself in.",
+              "The manifest at this origin predates the registry this page reads. Redeploy the " +
+              "widget bundle and this page fills itself in.",
           });
           return;
         }

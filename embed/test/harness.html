@@ -360,15 +360,20 @@
          a partner who omitted it. The last is a value that is not in the list at all, so the
          refusal path is one click away on every parameter rather than on the one that happened
          to have a checkbox wired to it. */
-      for (const [attr, values] of Object.entries(PARAMS)) {
+      for (const [attr, spec] of Object.entries(PARAMS)) {
         const label = document.createElement("label");
         label.textContent = attr.replace(/^data-/, "");
         const select = document.createElement("select");
         select.dataset.attr = attr;
         select.onchange = () => mount();
+        /* The default emits no attribute, because writing a parameter at its own default is
+           byte-identical to leaving it off — there is no third state for a control to offer.
+           Values are shown raw here rather than by their sentence: this page is ours, and what
+           we need to read off it is exactly what went on the tag. */
         for (const [value, text] of [
-          ["", "— not set"],
-          ...values.map((v) => [v, v]),
+          ...Object.keys(spec.values).map((v) =>
+            v === spec.default ? ["", `${v} — default, not written`] : [v, v],
+          ),
           ["invalid", "invalid — must refuse"],
         ]) {
           const option = document.createElement("option");

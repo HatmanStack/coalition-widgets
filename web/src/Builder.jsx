@@ -80,7 +80,7 @@ export default function Builder({ manifest }) {
         <fieldset>
           <legend>Options</legend>
           <div className="params">
-            {Object.entries(manifest.params).map(([attr, values]) => (
+            {Object.entries(manifest.params).map(([attr, spec]) => (
               <Fragment key={attr}>
                 <label htmlFor={attr}>{attr.replace(/^data-/, "")}</label>
                 <select
@@ -90,12 +90,16 @@ export default function Builder({ manifest }) {
                     setParams((p) => ({ ...p, [attr]: e.target.value }))
                   }
                 >
-                  {/* Not the same as `auto`: several of these have an explicit `auto` value, and
-                      leaving the attribute off is a different thing to writing it. */}
-                  <option value="">leave it off</option>
-                  {values.map((v) => (
-                    <option key={v} value={v}>
-                      {v}
+                  {/* One option per outcome. The default carries an empty value, so choosing it
+                      writes no attribute at all — which is the same rendering as writing it out
+                      and a shorter tag. There used to be a separate "leave it off" above these,
+                      which meant every control offered two options that did the same thing. */}
+                  {Object.entries(spec.values).map(([value, label]) => (
+                    <option
+                      key={value}
+                      value={value === spec.default ? "" : value}
+                    >
+                      {label}
                     </option>
                   ))}
                 </select>
