@@ -82,6 +82,12 @@ applications:
             value: geolocation=(), camera=(), microphone=(), interest-cohort=()
           - key: Strict-Transport-Security
             value: max-age=31536000; includeSubDomains
+          # `style-src 'self'` is not optional here, and its absence is invisible until deploy:
+          # Vite extracts the CSS to /assets/index-<hash>.css and links it, so without 'self' the
+          # stylesheet is refused and the site renders as unstyled HTML — heading at the browser
+          # default, no background, everything still *there*. 'unsafe-inline' stays beside it for
+          # the widget's own <style> fallback inside its shadow roots and for React's style props.
+          #
           # Unlike the site above, this one deliberately loads something external: the widget
           # bundle, from the distribution that serves it. `script-src` lets it load and
           # `connect-src` lets it fetch the figures — omit either and the page renders with
@@ -92,7 +98,7 @@ applications:
           - key: Content-Security-Policy
             value: >-
               default-src 'none';
-              style-src 'unsafe-inline';
+              style-src 'self' 'unsafe-inline';
               script-src 'self' https://d2s2vi2gd7olxb.cloudfront.net;
               connect-src https://d2s2vi2gd7olxb.cloudfront.net;
               img-src 'self' data:;

@@ -204,8 +204,12 @@ Resources:
     Properties:
       DistributionConfig:
         Enabled: true
-        # The help page a partner is sent to from an error card.
-        DefaultRootObject: index.html
+        # No DefaultRootObject. There is no index.html on this distribution any more — the page a
+        # person reads is the React site on Amplify, and this serves the bundle, the manifest, the
+        # figures and llm.txt. Naming a root object that is never published buys nothing: the root
+        # answered 403 with it set, because S3 refuses a key that is not there to a reader that
+        # cannot list the bucket. It still answers 403 without it, and now the template does not
+        # claim otherwise.
         HttpVersion: http2and3
         IPV6Enabled: true
         Origins:
