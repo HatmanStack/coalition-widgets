@@ -76,7 +76,9 @@ export default function Help({ manifest, sampleData = true }) {
         </div>
       )}
 
-      <h2>What it looks like</h2>
+      <section>
+        <h2>What it looks like</h2>
+
       <p>
         These are real widgets running on this page, mounted the way your site
         would mount them. Only the figures are sample data.
@@ -89,26 +91,38 @@ export default function Help({ manifest, sampleData = true }) {
         </div>
       ))}
 
-      <h2>Adding it to your site</h2>
+      </section>
+
+      <section>
+        <h2>Adding it to your site</h2>
+
       <p>
         Copy this and paste it into your page where you want the figures to
         appear. That is the whole installation.
       </p>
 
-      <pre>
-        <button
-          className="copy"
-          type="button"
-          onClick={() => {
-            navigator.clipboard.writeText(tag);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1600);
-          }}
-        >
-          {copied ? "Copied" : "Copy"}
-        </button>
-        <code>{tag}</code>
-      </pre>
+      {/* The plate, not a code block. This is the object the whole site exists to hand over, so
+          it is labelled and mounted, and the copy affordance sits in its own strip rather than
+          floating over the artifact. The same component appears on the builder. */}
+      <div className="tag-plate">
+        <div className="tag-plate-head">
+          <span className="eyebrow">Your tag</span>
+          <button
+            className="copy"
+            type="button"
+            onClick={() => {
+              navigator.clipboard.writeText(tag);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1600);
+            }}
+          >
+            {copied ? "Copied" : "Copy"}
+          </button>
+        </div>
+        <pre>
+          <code>{tag}</code>
+        </pre>
+      </div>
 
       <p>
         If your website is built with WordPress, Squarespace, Wix or similar,
@@ -124,7 +138,11 @@ export default function Help({ manifest, sampleData = true }) {
         figures where you put it.
       </p>
 
-      <h2>What you can show</h2>
+      </section>
+
+      <section>
+        <h2>What you can show</h2>
+
       <p>
         <a href="#/builder">The builder</a> picks these for you and hands back a
         finished tag. To write one yourself, list the names inside{" "}
@@ -156,13 +174,17 @@ export default function Help({ manifest, sampleData = true }) {
         ))}
       </div>
 
-      <h2>If something does not look right</h2>
+      </section>
+
+      <section>
+        <h2>If something does not look right</h2>
+
       <p>
         You do not need to work out what is wrong. An assistant can do it from a
         picture.
       </p>
 
-      <ol>
+      <ol className="steps">
         <li>Take a screenshot of the part of your page where the widget is.</li>
         {/* The reference deliberately shows the tag with <hash> and <digest> in place of the
             real values, so that it cannot go stale between builds — which means it tells the
@@ -202,7 +224,11 @@ export default function Help({ manifest, sampleData = true }) {
         the screenshot is usually enough on its own.
       </p>
 
-      <h2>Getting help from a person</h2>
+      </section>
+
+      <section>
+        <h2>Getting help from a person</h2>
+
 
       <div className="contact">
         <b>Questions about the figures</b>
@@ -226,6 +252,7 @@ export default function Help({ manifest, sampleData = true }) {
           maintains your website, or with the team that gave you this page.
         </p>
       </div>
+      </section>
     </>
   );
 }

@@ -1,14 +1,49 @@
-/* Carried over from the page this replaces, so the site a partner already had a link to did not
-   change its appearance the day it became a React app. */
+/* The site a partner is given.
+ *
+ * Direction: public-information design, not product marketing. This is a civic instrument — the
+ * publisher refuses rather than repairs, small cells are suppressed, the disclaimer is not
+ * configurable. A page about a system defined by restraint should not be selling anything, so:
+ * flat colour fields, a real grid, no gradients, no soft shadows, and the identifiers set as a
+ * voice of their own rather than as decoration.
+ *
+ * Archivo for everything spoken, because it was drawn for newspapers, magazines and signage and
+ * carries a wayfinding register at display sizes — it has a `wdth` axis, so the expansion on
+ * headings is real rather than a transform. IBM Plex Mono for everything named: `hmis-snapshot`,
+ * `CHC-02`, the tag. Those identifiers are the product's actual vocabulary and they earn a
+ * typeface, not a fallback.
+ *
+ * The widgets are insulated in shadow roots, so nothing here reaches them. That separation is
+ * the point of the whole layout: our chrome is a deep blue plate, and every widget sits on a
+ * white card inside it, mounted the way a specimen is. What is ours and what will be theirs are
+ * never the same surface.
+ */
+
+@import "@fontsource-variable/archivo";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
 
 :root {
-  --ink: #12161f;
-  --ink2: #4a5265;
-  --muted: #767e90;
-  --line: #e2e6ef;
-  --bg: #f4f6fa;
-  --s1: #0044b5;
-  --s2: #eb6834;
+  /* --brand IS the widgets' first series. The site and the charts are one system on purpose:
+     the blue in the masthead is the blue in the bars. */
+  --brand: #0044b5;
+  --brand-deep: #002a6e;
+  --brand-lift: #1a5ed6;
+  --accent: #eb6834;
+
+  --ink: #0b1220;
+  --ink-2: #414d66;
+  --muted: #78839b;
+  --paper: #ffffff;
+  --field: #eaeef5;
+  --rule: #d5dcea;
+  --rule-soft: #e6ebf4;
+  --on-brand: #dfe8fa;
+
+  --sans: "Archivo Variable", ui-sans-serif, system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --gutter: clamp(20px, 4vw, 40px);
+  --measure: 66ch;
 }
 
 * {
@@ -16,363 +51,583 @@
 }
 
 body {
-  font:
-    17px/1.6 ui-sans-serif,
-    system-ui,
-    -apple-system,
-    Segoe UI,
-    Roboto,
-    sans-serif;
-  color: var(--ink);
-  background: var(--bg);
   margin: 0;
+  background: var(--field);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 17px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
 }
+
+/* ---- rhythm ------------------------------------------------------------------------------ */
 
 .wrap {
-  max-width: 860px;
+  max-width: 940px;
   margin: 0 auto;
-  padding: 0 20px 72px;
+  padding: 0 var(--gutter);
 }
 .wrap.wide {
-  max-width: 1180px;
+  max-width: 1240px;
 }
 
+h1,
+h2,
+h3 {
+  font-family: var(--sans);
+  font-variation-settings: "wdth" 112;
+  letter-spacing: -0.02em;
+  line-height: 1.08;
+  margin: 0;
+  text-wrap: balance;
+}
 h1 {
-  font-size: clamp(1.7rem, 1.4rem + 1.4vw, 2.4rem);
-  letter-spacing: -0.03em;
-  line-height: 1.15;
-  margin: 0 0 0.4em;
+  font-size: clamp(2.1rem, 1.5rem + 2.6vw, 3.4rem);
+  font-weight: 800;
 }
 h2 {
-  font-size: 1.3rem;
-  letter-spacing: -0.02em;
-  margin: 2.4em 0 0.5em;
+  font-size: clamp(1.5rem, 1.2rem + 1vw, 2rem);
+  font-weight: 800;
 }
 h3 {
-  font-size: 1.05rem;
-  margin: 1.6em 0 0.3em;
+  font-size: 1.06rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 p {
-  margin: 0 0 1em;
-  color: var(--ink2);
-  max-width: 68ch;
+  margin: 0 0 1.1em;
+  color: var(--ink-2);
+  max-width: var(--measure);
 }
-.lede {
-  font-size: 1.12rem;
-  color: var(--ink2);
+a {
+  color: var(--brand);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1.5px;
 }
-
-header.masthead {
-  background: #fff;
-  border-bottom: 1px solid var(--line);
-  padding: 26px 0 20px;
-  margin-bottom: 8px;
-}
-/* `.wrap` carries 72px of bottom padding to keep page content clear of the footer, and the
-   masthead uses the same class only to get the centring and the gutters. Inherited here it put
-   72px of empty white under the nav — the tabs sat 111px above the content they switch between,
-   which read as a rendering fault rather than as spacing. */
-header.masthead .wrap {
-  padding-bottom: 0;
+a:hover {
+  color: var(--brand-lift);
 }
 
-nav.tabs {
-  display: flex;
-  gap: 4px;
-  margin: 18px 0 0;
+/* An eyebrow that says what a section is, not a decoration. Used only where the label carries
+   information the heading cannot — the cadence groups, the tag plate, the control fieldsets. */
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.13em;
+  color: var(--muted);
 }
-nav.tabs a {
-  font: inherit;
-  font-size: 0.95rem;
-  text-decoration: none;
-  color: var(--ink2);
-  padding: 7px 14px;
-  border-radius: 7px;
-}
-nav.tabs a:hover {
-  background: #eef1f7;
-  color: var(--ink);
-}
-nav.tabs a[aria-current="page"] {
-  background: var(--s1);
+
+/* ---- masthead ---------------------------------------------------------------------------- */
+
+/* A solid plate rather than a hero. The blue is the widgets' own first series, so the page opens
+   by stating the palette everything below it is drawn in. */
+.masthead {
+  background: var(--brand-deep);
   color: #fff;
+  padding: clamp(22px, 3.2vw, 38px) 0 clamp(20px, 2.8vw, 32px);
 }
+.masthead .wordmark {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin: 0 0 clamp(18px, 2.4vw, 28px);
+}
+.masthead .wordmark img {
+  width: 26px;
+  height: 26px;
+  display: block;
+  border-radius: 5px;
+}
+.masthead .wordmark span {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--on-brand);
+}
+.masthead h1 {
+  color: #fff;
+  max-width: 17ch;
+}
+.masthead .lede {
+  color: var(--on-brand);
+  font-size: clamp(1.02rem, 0.96rem + 0.3vw, 1.16rem);
+  max-width: 54ch;
+  margin: 0.7em 0 0;
+}
+
+/* The builder's plate: enough to say where you are, and then out of the way. */
+.masthead.compact {
+  padding: 18px 0 20px;
+}
+.masthead.compact .wordmark {
+  margin-bottom: 14px;
+}
+.masthead.compact h1 {
+  font-size: clamp(1.5rem, 1.2rem + 1vw, 1.9rem);
+  max-width: none;
+}
+.masthead.compact .lede {
+  font-size: 0.95rem;
+  margin-top: 0.45em;
+}
+
+/* Wayfinding, not chrome: a rail of destinations with the current one held down by a solid rule.
+   On the boundary between the plate and the field, so it reads as belonging to both. */
+.tabs {
+  background: var(--paper);
+  border-bottom: 1px solid var(--rule);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+.tabs .wrap {
+  display: flex;
+  gap: clamp(2px, 1vw, 10px);
+  align-items: stretch;
+}
+.tabs a {
+  font-size: 0.94rem;
+  font-weight: 600;
+  color: var(--ink-2);
+  text-decoration: none;
+  padding: 15px 4px 13px;
+  border-bottom: 3px solid transparent;
+  white-space: nowrap;
+  margin-right: 18px;
+}
+.tabs a:hover {
+  color: var(--ink);
+  border-bottom-color: var(--rule);
+}
+.tabs a[aria-current="page"] {
+  color: var(--brand);
+  border-bottom-color: var(--brand);
+}
+.tabs a.out {
+  margin-left: auto;
+  margin-right: 0;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+main {
+  padding: clamp(30px, 4vw, 52px) 0 96px;
+}
+/* A rule above each section, because these are distinct subjects rather than a sequence — the
+   page is not numbered, so the separation has to come from somewhere. */
+section + section {
+  margin-top: clamp(38px, 4.5vw, 60px);
+  padding-top: clamp(30px, 3.5vw, 44px);
+  border-top: 1px solid var(--rule);
+}
+section > h2 + p {
+  margin-top: 0.7em;
+}
+
+/* ---- notices ----------------------------------------------------------------------------- */
 
 .banner {
-  background: #fff4e5;
-  border-left: 4px solid var(--s2);
-  padding: 14px 18px;
-  margin: 0 0 28px;
-  border-radius: 0 8px 8px 0;
-  font-size: 0.95rem;
-  color: #5a3a12;
+  background: var(--paper);
+  border-left: 5px solid var(--accent);
+  padding: 16px 20px;
+  margin: 0 0 clamp(28px, 3.5vw, 40px);
+  font-size: 0.97rem;
+  color: var(--ink-2);
+}
+.banner b {
+  color: var(--ink);
 }
 .banner.bad {
-  background: #fdecec;
   border-left-color: #c0392b;
-  color: #6b1f16;
 }
 
-code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.88em;
-  background: #eef1f7;
-  padding: 0.12em 0.4em;
-  border-radius: 4px;
+/* ---- the tag: the one thing anybody came for -------------------------------------------- */
+
+/* Mounted rather than printed. A labelled plate, dark against a light field, with the copy
+   affordance in its own header strip — so the artifact itself is uninterrupted and the same
+   object appears identically on both pages. */
+.tag-plate {
+  background: var(--ink);
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 0 0 1.2em;
+  box-shadow: 0 1px 0 rgba(11, 18, 32, 0.06);
 }
-pre {
-  background: #12161f;
-  color: #e6e9ef;
-  padding: 16px 18px;
-  border-radius: 8px;
+.tag-plate-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+}
+.tag-plate-head .eyebrow {
+  color: #97a3bd;
+}
+.tag-plate pre {
+  margin: 0;
+  padding: 16px 18px 18px;
   overflow-x: auto;
-  font:
-    13px/1.7 ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    monospace;
-  position: relative;
+  font-family: var(--mono);
+  font-size: 0.79rem;
+  line-height: 1.75;
+  color: #e6ecf7;
 }
-pre code {
+.tag-plate code {
   background: none;
   padding: 0;
   color: inherit;
-  font-size: inherit;
+  font: inherit;
 }
 button.copy {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  font: inherit;
-  font-size: 12px;
-  padding: 5px 12px;
-  border: 1px solid #39414f;
-  background: #1c212b;
-  color: #e6e9ef;
-  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 6px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: transparent;
+  color: #fff;
+  border-radius: 5px;
   cursor: pointer;
+  transition: background 0.12s ease;
 }
 button.copy:hover {
-  background: #262d3a;
+  background: rgba(255, 255, 255, 0.12);
 }
 
-table {
-  border-collapse: collapse;
-  width: 100%;
-  font-size: 0.95rem;
-  margin: 0 0 1em;
-}
-th,
-td {
-  text-align: left;
-  padding: 0.5rem 0.8rem 0.5rem 0;
-  border-bottom: 1px solid var(--line);
-  vertical-align: top;
-}
-th {
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted);
-}
-ol {
-  color: var(--ink2);
-  max-width: 68ch;
-  padding-left: 1.2em;
-}
-ol li {
-  margin-bottom: 0.6em;
+code {
+  font-family: var(--mono);
+  font-size: 0.86em;
+  background: #e2e8f4;
+  color: #16305e;
+  padding: 0.1em 0.38em;
+  border-radius: 3px;
 }
 
-.sample,
-.contact,
-.panel {
-  background: #fff;
-  border: 1px solid var(--line);
+/* ---- specimen cards ---------------------------------------------------------------------- */
+
+/* A widget on a white card inside the light field: what it will look like on a page that is not
+   this one. The caption is the tag that produced it, so the sample and its cause sit together. */
+.sample {
+  background: var(--paper);
+  border: 1px solid var(--rule);
   border-radius: 10px;
-  padding: 20px;
-  margin: 0 0 20px;
+  margin: 0 0 18px;
+  overflow: hidden;
 }
 .sample > .cap {
-  font:
-    12px ui-monospace,
-    Menlo,
-    monospace;
+  font-family: var(--mono);
+  font-size: 0.74rem;
   color: var(--muted);
-  margin-bottom: 12px;
+  padding: 11px 18px;
+  border-bottom: 1px solid var(--rule-soft);
+  background: #f7f9fc;
 }
+/* The field, not white. A widget draws its own white card, and on a white sample that card
+   vanished into its background — two borders and no object. On the page colour it reads the way
+   it will read on a partner's page, which is the only thing this section is for. */
+.sample > div:last-child {
+  padding: 22px;
+  background: var(--field);
+}
+
 .contact {
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
   padding: 18px 20px;
-  margin-bottom: 16px;
+  margin: 0 0 14px;
 }
 .contact b {
   display: block;
-  margin-bottom: 0.2em;
+  margin-bottom: 0.25em;
+  font-weight: 700;
 }
 .contact p {
   margin: 0;
   font-size: 0.95rem;
 }
 
-/* ---- the widget catalogue --------------------------------------------------------------- */
+/* ---- the ordered steps ------------------------------------------------------------------- */
 
-/* One grid for the whole catalogue, with each group subgridded into it, so the name column is
-   sized once against the longest name anywhere in it. Each group as its own grid computed its
-   own `max-content`, and the descriptions in the two-widget group started 26px left of the rest.
-   Subgrid rather than a fixed width because the widest name is whatever the catalogue happens to
-   hold, and a magic number goes wrong the first time a longer widget is added. */
+/* Numbered because this genuinely is a sequence — screenshot, then tag, then assistant, then
+   replace — and the order is what makes it work. The markers are set in mono to match the codes
+   the reader will be looking at on their own screen. */
+ol.steps {
+  list-style: none;
+  counter-reset: step;
+  padding: 0;
+  margin: 0 0 1.2em;
+  max-width: var(--measure);
+}
+ol.steps li {
+  counter-increment: step;
+  position: relative;
+  padding: 0 0 0 44px;
+  margin: 0 0 16px;
+  color: var(--ink-2);
+}
+ol.steps li::before {
+  content: counter(step, decimal-leading-zero);
+  position: absolute;
+  left: 0;
+  top: 1px;
+  font-family: var(--mono);
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--brand);
+  background: #dfe7f7;
+  border-radius: 4px;
+  padding: 2px 7px;
+}
+
+/* ---- the catalogue ----------------------------------------------------------------------- */
+
+/* One grid for the whole catalogue, each group subgridded into it, so the name column is sized
+   once against the longest name anywhere in it. Per-group grids computed their own max-content
+   and the two-widget group's descriptions sat 26px left of the rest. */
 .catalogue {
   display: grid;
   grid-template-columns: max-content 1fr;
-  margin: 0 0 1.5em;
+  margin: 0 0 1.4em;
 }
 .catalogue section {
   display: grid;
   grid-template-columns: subgrid;
   grid-column: 1 / -1;
 }
+/* The page rhythm rule above puts a rule over every `section + section`; these are groups
+   inside one section, and their h3 already carries a rule of its own. */
 .catalogue section + section {
-  margin-top: 26px;
+  margin-top: 30px;
+  padding-top: 0;
+  border-top: 0;
 }
 .catalogue h3 {
   grid-column: 1 / -1;
-  font-size: 0.72rem;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.13em;
   color: var(--muted);
-  margin: 0 0 2px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--line);
+  margin: 0 0 4px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--rule);
 }
 .catalogue dl {
   display: grid;
-  /* The name column is sized by the parent grid, so `length-of-stay` stops breaking across two
-     lines and every row settles to one. That wrapping was what made the old table look ragged. */
   grid-template-columns: subgrid;
   grid-column: 1 / -1;
-  gap: 0 20px;
+  gap: 0 22px;
   margin: 0;
   align-items: baseline;
 }
 .catalogue dt {
-  padding: 11px 0 0;
+  padding: 12px 0 0;
 }
 .catalogue dt code {
   white-space: nowrap;
-  background: #eaeffa;
-  color: #103a86;
-  font-size: 0.84em;
+  font-size: 0.8rem;
 }
 .catalogue dd {
   margin: 0;
-  padding: 11px 0 0;
-  color: var(--ink2);
-  font-size: 0.97rem;
-}
-@media (max-width: 620px) {
-  .catalogue dl {
-    grid-template-columns: 1fr;
-    gap: 0;
-  }
-  .catalogue dd {
-    padding: 2px 0 10px;
-  }
+  padding: 12px 0 0;
+  color: var(--ink-2);
+  font-size: 0.96rem;
 }
 
-footer {
-  border-top: 1px solid var(--line);
-  margin-top: 48px;
-  padding-top: 20px;
-  font-size: 0.85rem;
-  color: var(--muted);
-}
-
-/* ---- builder ---------------------------------------------------------------------------- */
+/* ---- the builder ------------------------------------------------------------------------- */
 
 .builder {
   display: grid;
-  grid-template-columns: minmax(260px, 320px) 1fr;
-  gap: 24px;
+  grid-template-columns: 296px 1fr;
+  gap: 26px;
   align-items: start;
 }
-@media (max-width: 780px) {
-  .builder {
-    grid-template-columns: 1fr;
-  }
+/* A grid item's default `min-width: auto` means it will not shrink below its content, so the
+   preview — which is a real box of a chosen width, 680px by default — pushed the whole page
+   sideways at 1024px instead of scrolling inside its own stage. The widget's own stylesheet
+   carries this exact line on .tile for exactly this reason. */
+.builder > * {
+  min-width: 0;
 }
 
 fieldset {
-  border: 1px solid var(--line);
+  border: 1px solid var(--rule);
   border-radius: 10px;
-  background: #fff;
-  padding: 14px 16px 16px;
+  background: var(--paper);
+  padding: 6px 16px 16px;
   margin: 0 0 16px;
 }
 legend {
-  font-size: 0.72rem;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.13em;
   color: var(--muted);
-  padding: 0 6px;
+  padding: 0 7px;
+  margin-left: -7px;
 }
 fieldset label.check {
-  display: block;
-  font-size: 0.95rem;
-  margin: 0 0 2px;
-  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 4px 0;
+  cursor: pointer;
 }
+fieldset label.check input {
+  accent-color: var(--brand);
+  width: 15px;
+  height: 15px;
+  flex: none;
+  cursor: pointer;
+}
+fieldset label.check code {
+  font-size: 0.79rem;
+  background: none;
+  color: var(--ink);
+  padding: 0;
+}
+fieldset label.check:hover code {
+  color: var(--brand);
+}
+
 .params {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 8px 10px;
+  gap: 9px 12px;
   align-items: center;
 }
 .params label {
-  font-size: 0.9rem;
-  color: var(--ink2);
+  font-family: var(--mono);
+  font-size: 0.76rem;
+  color: var(--muted);
 }
 select {
-  font: inherit;
-  font-size: 0.9rem;
-  padding: 5px 7px;
-  border: 1px solid var(--line);
+  font-family: var(--sans);
+  font-size: 0.88rem;
+  padding: 6px 8px;
+  border: 1px solid var(--rule);
   border-radius: 6px;
-  background: #fff;
+  background: var(--paper);
   color: var(--ink);
   width: 100%;
+  cursor: pointer;
+}
+select:focus-visible,
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* The width rail: the places a widget actually lands. One row, so the set reads as a scale
+   rather than as a wrapped list, and the dark toggle sits with them rather than orphaned. */
+.widthbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin: 0 0 14px;
+}
+.widthbar button {
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  font-weight: 500;
+  padding: 6px 12px;
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  color: var(--ink-2);
+  border-radius: 6px;
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+.widthbar button:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+.widthbar button b {
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  font-weight: 400;
+  color: var(--muted);
+  margin-left: 7px;
+}
+.widthbar button[aria-pressed="true"] b {
+  color: rgba(255, 255, 255, 0.72);
+}
+.widthbar button[aria-pressed="true"] {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+.widthbar .sep {
+  flex: 1;
+}
+.widthbar button.mode[aria-pressed="true"] {
+  background: var(--ink);
+  border-color: var(--ink);
 }
 
 .stage {
-  border: 1px solid var(--line);
+  border: 1px solid var(--rule);
   border-radius: 10px;
-  padding: 16px;
-  background: #fff;
+  padding: 22px;
+  background: var(--paper);
   overflow-x: auto;
 }
 .stage.onDark {
   background: #14161a;
+  border-color: #14161a;
 }
-.widthbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  align-items: center;
-  margin: 0 0 12px;
-  font-size: 0.85rem;
+
+/* The two grids that have a fixed track and therefore a floor. Dropped in the rewrite; a
+   296px + 1fr builder simply overflows below about 600px, and the catalogue's name column
+   crowds its descriptions long before that. */
+@media (max-width: 820px) {
+  .builder {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 620px) {
+  .catalogue,
+  .catalogue section,
+  .catalogue dl {
+    grid-template-columns: 1fr;
+  }
+  .catalogue dd {
+    padding: 3px 0 12px;
+  }
+  .tabs a {
+    margin-right: 12px;
+    font-size: 0.88rem;
+  }
+}
+
+footer {
+  border-top: 1px solid var(--rule);
+  margin-top: clamp(48px, 6vw, 80px);
+  padding-top: 22px;
+  font-size: 0.84rem;
   color: var(--muted);
+  max-width: var(--measure);
 }
-.widthbar button {
-  font: inherit;
-  font-size: 0.85rem;
-  padding: 5px 11px;
-  border: 1px solid var(--line);
-  background: #fff;
-  color: var(--ink2);
-  border-radius: 6px;
-  cursor: pointer;
-}
-.widthbar button[aria-pressed="true"] {
-  background: var(--s1);
-  border-color: var(--s1);
-  color: #fff;
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
 }
