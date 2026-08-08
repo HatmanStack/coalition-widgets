@@ -16,11 +16,11 @@ import Embed from "./Embed.jsx";
 /* Real places a widget lands, with the width each one gives you. Content widths, so they already
    exclude a host page's own padding: 343 is a 375px phone less 16px either side. */
 const WIDTHS = [
-  ["Blog sidebar", 300],
+  ["Sidebar", 300],
   ["Phone", 343],
-  ["Half a column", 480],
-  ["Article column", 680],
-  ["Page section", 1120],
+  ["Half column", 480],
+  ["Article", 680],
+  ["Section", 1120],
   ["Full width", null],
 ];
 
@@ -80,7 +80,7 @@ export default function Builder({ manifest }) {
         <fieldset>
           <legend>Options</legend>
           <div className="params">
-            {Object.entries(manifest.params).map(([attr, values]) => (
+            {Object.entries(manifest.params).map(([attr, spec]) => (
               <Fragment key={attr}>
                 <label htmlFor={attr}>{attr.replace(/^data-/, "")}</label>
                 <select
@@ -90,12 +90,16 @@ export default function Builder({ manifest }) {
                     setParams((p) => ({ ...p, [attr]: e.target.value }))
                   }
                 >
-                  {/* Not the same as `auto`: several of these have an explicit `auto` value, and
-                      leaving the attribute off is a different thing to writing it. */}
-                  <option value="">leave it off</option>
-                  {values.map((v) => (
-                    <option key={v} value={v}>
-                      {v}
+                  {/* One option per outcome. The default carries an empty value, so choosing it
+                      writes no attribute at all — which is the same rendering as writing it out
+                      and a shorter tag. There used to be a separate "leave it off" above these,
+                      which meant every control offered two options that did the same thing. */}
+                  {Object.entries(spec.values).map(([value, label]) => (
+                    <option
+                      key={value}
+                      value={value === spec.default ? "" : value}
+                    >
+                      {label}
                     </option>
                   ))}
                 </select>
@@ -115,16 +119,17 @@ export default function Builder({ manifest }) {
               onClick={() => setWidth(w)}
             >
               {label}
-              {w ? ` — ${w}px` : ""}
+              {w ? <b>{w}</b> : null}
             </button>
           ))}
+          <span className="sep" />
           <button
             type="button"
+            className="mode"
             aria-pressed={dark}
             onClick={() => setDark((d) => !d)}
-            style={{ marginLeft: "auto" }}
           >
-            dark page
+            Dark page
           </button>
         </div>
 
@@ -141,13 +146,17 @@ export default function Builder({ manifest }) {
           </div>
         </div>
 
-        <h3>Paste this into your page</h3>
-        <pre>
-          <button className="copy" type="button" onClick={copy}>
-            {copied ? "Copied" : "Copy"}
-          </button>
-          <code>{tag}</code>
-        </pre>
+        <div className="tag-plate">
+          <div className="tag-plate-head">
+            <span className="eyebrow">Your tag</span>
+            <button className="copy" type="button" onClick={copy}>
+              {copied ? "Copied" : "Copy"}
+            </button>
+          </div>
+          <pre>
+            <code>{tag}</code>
+          </pre>
+        </div>
       </div>
     </div>
   );

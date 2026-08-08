@@ -12,7 +12,7 @@
  */
 
 import { build } from "esbuild";
-import { ALLOWED } from "./src/params.js";
+import { PARAMS } from "./src/params.js";
 import { CATALOGUE, NAMES } from "./src/widgets/index.js";
 import { llmText } from "./llm.mjs";
 import { createHash } from "node:crypto";
@@ -131,7 +131,7 @@ const manifest = {
      checkboxes had gone stale at eleven while the catalogue reached thirteen, and two of the six
      parameters had no control at all because nobody remembered to add one. Emitted here, from
      the same constants the bundle enforces, so the next parameter arrives with a control. */
-  params: ALLOWED,
+  params: PARAMS,
   widgets: NAMES,
   // How often each one moves. The site prints it in the widget table, and it is a property of
   // the catalogue entry rather than anything the site could work out for itself.
@@ -168,7 +168,7 @@ writeFileSync(
     manifest,
     catalogue: CATALOGUE,
     names: NAMES,
-    allowed: ALLOWED,
+    params: PARAMS,
   }),
 );
 

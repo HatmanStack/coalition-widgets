@@ -39,7 +39,7 @@ import {
   tooNarrow,
 } from "./errors.js";
 import { resolveTheme, sizeFor, watchTheme, watchWidth } from "./env.js";
-import { ALLOWED, SCALES } from "./params.js";
+import { ALLOWED, PARAMS, SCALES } from "./params.js";
 import { adopt } from "./sheet.js";
 import { subscribe } from "./store.js";
 
@@ -66,7 +66,12 @@ function attrs(tag) {
   const problems = [];
   const raw = (name) => (tag ? tag.getAttribute(name) : null);
 
-  const oneOf = (name, fallback) => {
+  /* The fallback is the registry's, not a literal repeated at each call. It was repeated at
+     each call, which is why nothing outside this file could know what a parameter does when it
+     is left off — and a control that does not know the default cannot tell that "leave it off"
+     and the default value are the same answer. */
+  const oneOf = (name) => {
+    const fallback = PARAMS[name].default;
     const value = raw(name);
     if (value === null || value === "") return fallback;
     if (!ALLOWED[name].includes(value)) {
@@ -104,11 +109,11 @@ function attrs(tag) {
     problems,
     options: {
       widgets,
-      theme: oneOf("data-theme", "auto"),
-      size: oneOf("data-size", "auto"),
-      layout: oneOf("data-layout", "cards"),
-      table: oneOf("data-table", "true") !== "false",
-      titles: oneOf("data-titles", "true") !== "false",
+      theme: oneOf("data-theme"),
+      size: oneOf("data-size"),
+      layout: oneOf("data-layout"),
+      table: oneOf("data-table") !== "false",
+      titles: oneOf("data-titles") !== "false",
       years,
       // Valid segments are whatever the payload happens to carry, so this one is checked at
       // render time, where the available keys can be named in the message.

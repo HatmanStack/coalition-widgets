@@ -82,6 +82,10 @@ applications:
             value: geolocation=(), camera=(), microphone=(), interest-cohort=()
           - key: Strict-Transport-Security
             value: max-age=31536000; includeSubDomains
+          # `font-src 'self'` for the two self-hosted faces. Same invisible-until-deploy failure
+          # as style-src below: default-src is 'none', so without it the fonts are refused and
+          # the page silently falls back to the system stack.
+          #
           # `style-src 'self'` is not optional here, and its absence is invisible until deploy:
           # Vite extracts the CSS to /assets/index-<hash>.css and links it, so without 'self' the
           # stylesheet is refused and the site renders as unstyled HTML — heading at the browser
@@ -99,6 +103,7 @@ applications:
             value: >-
               default-src 'none';
               style-src 'self' 'unsafe-inline';
+              font-src 'self';
               script-src 'self' https://d2s2vi2gd7olxb.cloudfront.net;
               connect-src https://d2s2vi2gd7olxb.cloudfront.net;
               img-src 'self' data:;
