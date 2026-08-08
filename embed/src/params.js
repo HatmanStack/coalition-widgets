@@ -45,15 +45,21 @@ export const PARAMS = {
       xl: "Extra large",
     },
   },
-  // Two layouts, neither of them the right one. `cards` gives each statistic a card of its own
-  // with its own period, callout and attribution — a story down a page, which is what a partner
-  // dropping three widgets into a post wants. `dashboard` packs figures several across with
-  // attribution once at the foot, which is what all thirteen on a wallboard wants.
+  /* Measured, because the words here were wrong twice over. The old ones said `cards` gave each
+     card "its own period, callout and attribution" — it does not, the pane footer is drawn once
+     for both layouts. Then "One card each" and "Packed together" implied that `dashboard` was
+     the denser of the two, and at 1120px with five widgets it is taller, in more rows, with
+     LARGER figures.
+
+     What actually differs is column width. Across 680, 900, 1120 and 1400px, `cards` produced
+     exactly one tile width every time and `dashboard` produced two — charts spanning wider
+     tracks than single figures. So it is uniform against sized-to-content, and the labels say
+     that and nothing else. */
   "data-layout": {
     default: "cards",
     values: {
-      cards: "One card each",
-      dashboard: "Packed together",
+      cards: "Equal columns",
+      dashboard: "Charts get more room",
     },
   },
   "data-table": {
