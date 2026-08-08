@@ -66,16 +66,34 @@ export function useManifest() {
         /* A manifest without these is an older build, not an empty catalogue. Rendering a
            builder with no widgets and no parameters would look like the widgets had gone away;
            saying which build is being read is the difference between a puzzle and a fix. */
-        /* The shape, not just the presence. `params` used to be {attr: [values]} and is now
-           {attr: {default, values}}; read the old shape with the new code and every control
-           renders with no options at all and nothing thrown — `Array.prototype.values` is a
-           function, and Object.entries of a function is []. A silently empty control is the
-           worst outcome available here, so it is checked for by name. */
+        /* The whole shape, not just its outline. `params` used to be {attr: [values]} and is
+           now {attr: {default, values}}; read the old shape with the new code and every control
+           renders with no options and nothing thrown — `Array.prototype.values` is a function,
+           and Object.entries of a function is [].
+        
+           The first version of this check tested only that each spec was a non-array object,
+           which let three things through: `[]` and `{}` both pass `.every` vacuously and render
+           zero controls, and a spec with no `values` passes and then throws in the builder. A
+           check that admits the failure it was written to catch is worse than none, because it
+           reports health. So every part the builder actually reads is named here. */
+        const spec = (s) =>
+          s &&
+          typeof s === "object" &&
+          !Array.isArray(s) &&
+          s.values &&
+          typeof s.values === "object" &&
+          !Array.isArray(s.values) &&
+          Object.keys(s.values).length > 0 &&
+          typeof s.default === "string" &&
+          s.default in s.values;
+
+        const params = manifest.params;
         const shaped =
-          manifest.params &&
-          Object.values(manifest.params).every(
-            (spec) => spec && typeof spec === "object" && !Array.isArray(spec),
-          );
+          params &&
+          typeof params === "object" &&
+          !Array.isArray(params) &&
+          Object.keys(params).length > 0 &&
+          Object.values(params).every(spec);
         if (!manifest.params || !manifest.widgets || !shaped) {
           setState({
             status: "stale",
