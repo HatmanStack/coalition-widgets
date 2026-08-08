@@ -18,9 +18,18 @@
  * never the same surface.
  */
 
-@import "@fontsource-variable/archivo";
-@import "@fontsource/ibm-plex-mono/400.css";
-@import "@fontsource/ibm-plex-mono/500.css";
+/* `wdth`, not the default entry point, and latin-only for the mono.
+ *
+ * The package's default stylesheet ships the weight axis alone, so `font-stretch` on the
+ * headings was inert — measured at 533px identically at wdth 80, 100 and 112, which means the
+ * expansion this direction is built on was doing nothing at all. `wdth.css` declares
+ * `font-stretch: 62% 125%` alongside `font-weight: 100 900`, so both axes are live.
+ *
+ * The mono takes its latin subsets by name because the umbrella import pulled cyrillic,
+ * cyrillic-ext and vietnamese as well: twenty-three font files for a page written in English. */
+@import "@fontsource-variable/archivo/wdth.css";
+@import "@fontsource/ibm-plex-mono/latin-400.css";
+@import "@fontsource/ibm-plex-mono/latin-500.css";
 
 :root {
   /* --brand IS the widgets' first series. The site and the charts are one system on purpose:
@@ -75,7 +84,7 @@ h1,
 h2,
 h3 {
   font-family: var(--sans);
-  font-variation-settings: "wdth" 112;
+  font-stretch: 112%;
   letter-spacing: -0.02em;
   line-height: 1.08;
   margin: 0;
