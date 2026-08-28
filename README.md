@@ -25,14 +25,31 @@ which is the only reason it is worth having.
 
 ## The site
 
+**<https://staging.d2b48lkm542els.amplifyapp.com/>** — Amplify, built from `web/`.
+
+Two pages: what the widgets are, and a builder that assembles the tag so nobody hand-writes one
+and finds out on a live page whether it parsed.
+
+It hosts no widgets. Every widget on it is fetched from the distribution over the network using
+the same tag it hands out, so the builder's preview is the real bundle reading the real figures
+rather than a mock of them — and the tag a partner copies points at CloudFront, never at the
+site. `web/.env` is what names the distribution, in development as well as in a build, so what
+you see locally is the tag a partner is actually given.
+
 ```bash
 npm run dev          # the widget origin on :8080 — the bundle, the data, llm.txt
-cd web && npm run dev  # the site, which reads that origin
+cd web && npm run dev  # the site, which reads the deployed distribution
 ```
 
-`web/.env` names the distribution the site loads widgets from, in development as well as in a
-build, so what you see locally is the tag a partner is actually handed. To work against a bundle
-built on this machine, put `VITE_WIDGET_ORIGIN=http://localhost:8080` in `web/.env.local`.
+> **Deploy it through Amplify, not by uploading `dist/`.** `customHeaders` in `amplify.yml` are
+> applied by the Amplify build; a manual upload skips them and the site goes out with no
+> Content-Security-Policy, no HSTS and no `nosniff` — which is how it is serving today. The CSP
+> also has to name the distribution in `script-src` and `connect-src`, and allow `font-src
+> 'self'` for the two self-hosted faces. Miss any of those and the failure is silent: widgets
+> simply absent, or the page falling back to system fonts.
+
+To work against a bundle built on this machine instead, put
+`VITE_WIDGET_ORIGIN=http://localhost:8080` in `web/.env.local`.
 
 `web/public/llm.txt` is written by hand and served by the site. `npm test` checks that every
 widget name in the catalogue appears in it and that every URL in it is the origin the site is
