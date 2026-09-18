@@ -20,7 +20,7 @@
 
 import { createServer } from "node:http";
 import {
-  readdirSync,
+  cpSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -118,13 +118,9 @@ mkdirSync(join(dir, "v1/data"), { recursive: true });
 mkdirSync(join(dir, "v1"), { recursive: true });
 /* Whatever was published, not a list of what used to be. Naming the cadences here meant adding
    one to the contract left this behind, and the widget that needed it 404'd inside the suite —
-   which reported as a console error rather than as the missing fixture it was. */
-for (const f of readdirSync(join(ROOT, "dist/v1/data"))) {
-  writeFileSync(
-    join(dir, "v1/data", f),
-    readFileSync(join(ROOT, "dist/v1/data", f)),
-  );
-}
+   which reported as a console error rather than as the missing fixture it was. The whole tree,
+   because it is not flat: the publisher's status records sit in a directory beside the data. */
+cpSync(join(ROOT, "dist/v1/data"), join(dir, "v1/data"), { recursive: true });
 writeFileSync(
   join(dir, bundle),
   readFileSync(join(ROOT, "dist", bundle.split("/").pop())),

@@ -623,8 +623,43 @@ def metric(cadence, failed, detail=""):
 # ---------------------------------------------------------------------------- handler
 
 
+def record(cadence, outcome, client=None):
+    """The last run of a cadence, for the status page: what happened and when, never why.
+
+    This file is public, like the data beside it. A refusal's message can quote the label that
+    was refused, and a label is exactly what the checks exist to keep from publishing — so the
+    reason stays in the function's log, inside the account, and this says only "refused".
+
+    One file per cadence rather than one for all: schedules created together fire together, and
+    two runs rewriting one shared file would lose whichever wrote first.
+    """
+    if cadence not in contract.CADENCES:
+        return  # an unknown cadence does not get a file named after it
+    try:
+        (client or boto3.client("s3")).put_object(
+            Bucket=os.environ["BUCKET"],
+            Key=f"v1/data/status/{cadence}.json",
+            Body=json.dumps(
+                {
+                    "cadence": cadence,
+                    "outcome": outcome,
+                    "at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                }
+            ).encode("utf-8"),
+            ContentType="application/json; charset=utf-8",
+            CacheControl="public, max-age=60",
+        )
+    except Exception as error:  # noqa: BLE001 - reporting, not handling
+        # Never in place of the run's own outcome. Failing to write this must not hide the
+        # refusal it was reporting, nor fail a publish that succeeded.
+        print(json.dumps({"statusNotWritten": type(error).__name__}))
+
+
 def handler(event, _context=None):
     cadence = (event or {}).get("cadence", "quarterly")
+    # published, refused (a check said no: the data needs fixing upstream), skipped (no Look
+    # configured yet) or failed (anything else: Looker, the key, the network, a bug).
+    outcome = "failed"
     try:
         # First, before any I/O: an unknown cadence should not reach the secret or the login.
         spec = spec_for(cadence)
@@ -644,6 +679,7 @@ def handler(event, _context=None):
         # A stack goes live one Look at a time. A cadence with none wired yet is not a failure,
         # and a schedule firing for it should neither log in nor raise the alarm.
         if not looks:
+            outcome = "skipped"
             return {"published": None, "skipped": f"no Look configured for {cadence}"}
 
         base = os.environ["LOOKER_BASE_URL"]
@@ -660,9 +696,14 @@ def handler(event, _context=None):
         }
 
         key = publish(build(cadence, rows), bucket)
+        outcome = "published"
     except Exception as error:
+        if isinstance(error, Refused):
+            outcome = "refused"
         metric(cadence, failed=True, detail=f"{type(error).__name__}: {error}")
         raise
+    finally:
+        record(cadence, outcome)
 
     metric(cadence, failed=False)
     return {"published": key}
