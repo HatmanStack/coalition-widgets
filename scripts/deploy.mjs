@@ -7,6 +7,9 @@
  *   npm run deploy -- --mock           with a fake Looker deployed alongside
  *   npm run deploy -- --mock --scenario small-cell    …one that the publisher must refuse
  *
+ *   npm run deploy -- --profile uwp --looker-url https://x.cloud.looker.com \
+ *                     --look-id Quarterly=123 --look-id County=456        a real Looker
+ *
  * Order is forced, not a preference. The bundle bakes in the data origin at build time, and the
  * origin is the CloudFront hostname, which does not exist until the stack does. So: deploy,
  * read the hostname, start the build against it.
@@ -66,11 +69,18 @@ const ask = (q, d = "") =>
 // ---------------------------------------------------------------------------- preflight
 
 line("Preflight");
-const config = existsSync(CONFIG)
+/* The account is named on the command line every time, never remembered. `.deploy.json` used to
+ * carry one `profile`, so the first deploy into a second account would have made it the default
+ * for every deploy after — including `--mock`, which on the same stack name repoints a real
+ * publisher at invented figures. What is saved is kept per profile for the same reason: a Look
+ * ID or a base URL means something only in the account it was given for. */
+const profile = flag("profile") || "dev";
+const saved = existsSync(CONFIG)
   ? JSON.parse(readFileSync(CONFIG, "utf-8"))
   : {};
-const profile = flag("profile") || config.profile || "dev";
+const config = saved[profile] || {};
 const stack = flag("stack") || config.stack || "coalition-widgets";
+const MOCK = process.argv.includes("--mock");
 
 const identity = run("aws", [
   "sts",
@@ -85,7 +95,38 @@ if (identity.code !== 0) {
     `No valid session for profile "${profile}". This uses SSO, so run:\n\n      aws sso login --profile ${profile}`,
   );
 }
-ok(`AWS account ${JSON.parse(identity.out).Account}`);
+ok(`AWS account ${JSON.parse(identity.out).Account} (profile ${profile})`);
+
+/* A stack is mock or real for its whole life. Flipping a real one to --mock points its publisher
+   at invented figures under the distribution partners already load, and nothing on their pages
+   would say so. A different stack name is the way to have both. */
+const existing = run("aws", [
+  "cloudformation",
+  "describe-stacks",
+  "--stack-name",
+  stack,
+  "--region",
+  REGION,
+  "--profile",
+  profile,
+  "--query",
+  "Stacks[0].Parameters[?ParameterKey=='MockLooker'].ParameterValue",
+  "--output",
+  "text",
+]);
+if (existing.code === 0) {
+  const wasMock = existing.out.trim() === "true";
+  if (wasMock !== MOCK)
+    die(
+      `Stack ${stack} is ${wasMock ? "a mock" : "a real"} deployment and this is ${MOCK ? "--mock" : "not --mock"}.\n` +
+        `      Refusing to switch it. Use --stack <another-name> for a separate one.`,
+    );
+  ok(`stack ${stack} exists, ${wasMock ? "mock" : "real"}`);
+} else if (/does not exist/.test(existing.out)) {
+  ok(`stack ${stack} is new`);
+} else {
+  die(`Could not read stack ${stack}:\n\n${existing.out}`);
+}
 
 for (const [cmd, args] of [
   ["sam", ["--version"]],
@@ -108,7 +149,6 @@ line("Looker");
 // for: the base URL is the mock's own Function URL, resolved by the template, and the Look IDs
 // are the mock's. It exists because there is no free Looker instance to test a deployment
 // against, and a deployed Lambda cannot reach a stub on this machine.
-const MOCK = process.argv.includes("--mock");
 const SCENARIO = flag("scenario") || "valid";
 
 let overrides;
@@ -124,53 +164,60 @@ if (MOCK) {
   );
   overrides = [`MockLooker=true`, `MockScenario=${SCENARIO}`];
 } else {
-  const looker = {
-    base:
-      flag("looker-url") ||
-      config.lookerBase ||
-      (await ask(
-        "Looker base URL, e.g. https://x.cloud.looker.com",
-        config.lookerBase || "",
-      )),
-    quarterly:
-      flag("quarterly-look") ||
-      config.quarterly ||
-      (await ask("Quarterly measures Look ID", config.quarterly || "")),
-    live:
-      flag("live-look") ||
-      config.live ||
-      (await ask("Live queue Look ID, blank to skip", config.live || "")),
-    race:
-      config.race ||
-      (await ask(
-        "Race and ethnicity Look ID, blank to skip",
-        config.race || "",
-      )),
-    shelter:
-      config.shelter ||
-      (await ask(
-        "Shelter status Look ID, blank to skip",
-        config.shelter || "",
-      )),
-  };
-  if (!looker.base)
+  /* Every Look ID the template takes, read from the template rather than listed here. This used
+     to ask for four of the thirteen, so a stack could not be pointed at a county or an annual
+     Look at all. A Look left unset is skipped by the publisher, not refused, so a stack can go
+     live one Look at a time. */
+  const NAMES = [
+    ...readFileSync(join(ROOT, "template.yaml"), "utf-8").matchAll(
+      /^  (\w+)LookId:/gm,
+    ),
+  ].map((m) => m[1]);
+  const looks = { ...(config.looks || {}) };
+  process.argv.forEach((a, i) => {
+    if (a !== "--look-id") return;
+    const [name, id] = (process.argv[i + 1] || "").split("=");
+    if (!NAMES.includes(name) || !id)
+      die(
+        `--look-id ${process.argv[i + 1] || ""}: expected Name=ID, one of\n\n      ${NAMES.join(", ")}`,
+      );
+    looks[name] = id;
+  });
+
+  const base =
+    flag("looker-url") ||
+    config.lookerBase ||
+    (await ask("Looker base URL, e.g. https://x.cloud.looker.com"));
+  if (!base)
     die(
       "A Looker base URL is required; the function has nothing to read without it.\n\n      To test without one: npm run deploy -- --mock",
     );
+  // The publisher refuses anything else at run time. Refusing it here saves a deploy.
+  if (!base.startsWith("https://"))
+    die(`The Looker base URL must start with https://, got ${base}`);
+  ok(`Looker ${base}`);
+  for (const name of NAMES)
+    console.log(`        ${name.padEnd(14)} ${looks[name] || "-"}`);
+  if (!Object.values(looks).some(Boolean))
+    warn(
+      "No Look IDs yet. Every run is skipped until one is set: --look-id Quarterly=123",
+    );
 
-  writeFileSync(
-    CONFIG,
-    `${JSON.stringify({ profile, stack, lookerBase: looker.base, quarterly: looker.quarterly, live: looker.live, race: looker.race, shelter: looker.shelter }, null, 2)}\n`,
-  );
-  ok(`wrote ${CONFIG}`);
+  // Not on a dry run: it would change what the next real deploy targets without deploying.
+  if (!DRY) {
+    writeFileSync(
+      CONFIG,
+      `${JSON.stringify({ ...saved, [profile]: { stack, lookerBase: base, looks } }, null, 2)}\n`,
+    );
+    ok(`saved under "${profile}" in ${CONFIG}`);
+  }
 
+  // Only the IDs that are set. On an update SAM keeps the previous value of any parameter not
+  // passed, and on a create the template's empty default applies.
   overrides = [
     `MockLooker=false`,
-    `LookerBaseUrl=${looker.base}`,
-    `QuarterlyLookId=${looker.quarterly}`,
-    `LiveLookId=${looker.live}`,
-    `RaceEthnicityLookId=${looker.race}`,
-    `ShelterStatusLookId=${looker.shelter}`,
+    `LookerBaseUrl=${base}`,
+    ...NAMES.filter((n) => looks[n]).map((n) => `${n}LookId=${looks[n]}`),
   ];
 }
 
@@ -361,7 +408,19 @@ ok(`build SUCCEEDED`);
 // ---------------------------------------------------------------------------- mock: prove it
 
 if (!MOCK) {
-  console.log(`\n  The embed tag is at ${origin}/v1/manifest.json\n`);
+  line("Next");
+  console.log(`  The embed tag is at ${origin}/v1/manifest.json\n`);
+  console.log(
+    `  The key goes in with the acceptance test, which stores it only on a PASS:\n`,
+  );
+  console.log(`      python3 acceptance.py --host <looker> --look <id> \\`);
+  console.log(`        --secret ${outputs.LookerSecretArn}\n`);
+  console.log(`  Then publish one cadence and read what it says:\n`);
+  console.log(
+    `      aws lambda invoke --function-name ${outputs.PublisherFunctionName} \\\n` +
+      `        --payload '{"cadence":"quarterly"}' --cli-binary-format raw-in-base64-out \\\n` +
+      `        --region ${REGION} --profile ${profile} /dev/stdout\n`,
+  );
   process.exit(0);
 }
 
