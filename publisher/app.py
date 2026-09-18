@@ -18,6 +18,15 @@ import looker
 
 NAMESPACE = "CoalitionPublisher"
 
+# On everything this writes where the public can read it, and deliberately not configurable.
+PROVENANCE = {
+    "source": "Coalition HMIS via Looker",
+    "disclaimer": (
+        "Unaffiliated concept work. Not produced, authorised or endorsed by "
+        "United Way of the Plains or the Coalition to End Homelessness."
+    ),
+}
+
 
 class Refused(Exception):
     """The payload may not be published."""
@@ -519,11 +528,7 @@ def build(cadence, rows_by_look):
             "schemaVersion": 1,
             "generated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "cadence": cadence,
-            "source": "Coalition HMIS via Looker",
-            "disclaimer": (
-                "Unaffiliated concept work. Not produced, authorised or endorsed by "
-                "United Way of the Plains or the Coalition to End Homelessness."
-            ),
+            **PROVENANCE,
         },
     }
 
@@ -644,6 +649,7 @@ def record(cadence, outcome, client=None):
                     "cadence": cadence,
                     "outcome": outcome,
                     "at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    **PROVENANCE,
                 }
             ).encode("utf-8"),
             ContentType="application/json; charset=utf-8",

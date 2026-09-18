@@ -58,20 +58,26 @@ configured for — the two facts in it that can go silently out of date.
 ## Deploy
 
 ```bash
-aws sso login --profile dev
+aws sso login --profile <profile>
 npm install
-npm run deploy
+npm run deploy -- --profile <profile> --looker-url https://x.cloud.looker.com \
+                  --look-id Quarterly=123
 ```
 
-It asks for the Looker base URL and Look IDs, deploys the stack, then starts the CodeBuild
-project that builds and publishes the bundle. The order is forced: the bundle bakes in the data
-origin at build time and the origin is the CloudFront hostname, which does not exist until the
-stack does.
+`--profile` is required; which account a deploy targets is never assumed. `--look-id Name=ID`
+sets any Look the template takes, and may be repeated; a cadence with no Look set is skipped
+rather than failed, so a stack can go live one Look at a time. It deploys the stack, then starts
+the CodeBuild project that builds and publishes the bundle. The order is forced: the bundle bakes
+in the data origin at build time and the origin is the CloudFront hostname, which does not exist
+until the stack does.
 
-Put the Looker credential in the secret the stack creates, as JSON:
+The Looker key goes into the secret the stack creates through the acceptance test, run by
+whoever holds the key, in CloudShell. It stores the key only if the key runs its Look and is
+refused 403 on everything else, and prints no data:
 
-```json
-{ "client_id": "...", "client_secret": "..." }
+```bash
+curl -sO https://raw.githubusercontent.com/HatmanStack/coalition-widgets/main/scripts/acceptance.py
+python3 acceptance.py --host https://x.cloud.looker.com --look 123 --secret <LookerSecretArn>
 ```
 
 There are two schedules, one per cadence, each passing its own `Input`:
@@ -271,8 +277,8 @@ _into the stack_ — a second function behind a Function URL that the publisher 
 it would read Looker:
 
 ```bash
-npm run deploy -- --mock                                # valid data
-npm run deploy -- --mock --scenario small-cell          # the publisher must refuse this
+npm run deploy -- --profile dev --mock                          # valid data
+npm run deploy -- --profile dev --mock --scenario small-cell    # the publisher must refuse this
 ```
 
 No Looker URL, no Look IDs, no secret to populate: the template substitutes the mock's own

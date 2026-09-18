@@ -12,9 +12,13 @@
  */
 
 import { spawn, spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { ACCESS } from "../mock-looker/scenarios.mjs";
 
-const ROOT = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
+const ROOT = fileURLToPath(new URL("..", import.meta.url)).replace(
+  /[\\/]$/,
+  "",
+);
 const PORT = 8242;
 const EXIT = { PASS: 0, FAIL: 1, INCONCLUSIVE: 2 };
 const CLIENT_ID = "rehearsal-client-id";

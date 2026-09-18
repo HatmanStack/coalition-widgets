@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 /* Deploy the stack, then build and publish the bundle.
  *
- *   npm run deploy                     everything
- *   npm run deploy -- --dry-run        preflight and print what it would run
- *   npm run deploy -- --skip-bundle    stack only
- *   npm run deploy -- --mock           with a fake Looker deployed alongside
- *   npm run deploy -- --mock --scenario small-cell    …one that the publisher must refuse
+ *   npm run deploy -- --profile dev --mock          with a fake Looker deployed alongside
+ *   npm run deploy -- --profile dev --mock --scenario small-cell   …one it must refuse
+ *   npm run deploy -- --profile dev --mock --dry-run               preflight, print, write nothing
+ *   npm run deploy -- --profile dev --mock --skip-bundle           stack only
  *
  *   npm run deploy -- --profile uwp --looker-url https://x.cloud.looker.com \
  *                     --look-id Quarterly=123 --look-id County=456        a real Looker
@@ -69,12 +68,18 @@ const ask = (q, d = "") =>
 // ---------------------------------------------------------------------------- preflight
 
 line("Preflight");
-/* The account is named on the command line every time, never remembered. `.deploy.json` used to
- * carry one `profile`, so the first deploy into a second account would have made it the default
- * for every deploy after — including `--mock`, which on the same stack name repoints a real
- * publisher at invented figures. What is saved is kept per profile for the same reason: a Look
- * ID or a base URL means something only in the account it was given for. */
-const profile = flag("profile") || "dev";
+/* The account is named on the command line every time: not remembered, and not defaulted.
+ * `.deploy.json` used to carry one `profile`, so the first deploy into a second account would
+ * have made it the default for every deploy after — including `--mock`, which on the same stack
+ * name repoints a real publisher at invented figures. A default of `dev` was the same mistake in
+ * a quieter form once there are two accounts. What is saved is kept per profile for the same
+ * reason: a Look ID or a base URL means something only in the account it was given for. */
+const profile = flag("profile");
+if (!profile)
+  die(
+    "--profile is required: which AWS account this deploys into is never assumed.\n\n" +
+      "      npm run deploy -- --profile dev --mock",
+  );
 const saved = existsSync(CONFIG)
   ? JSON.parse(readFileSync(CONFIG, "utf-8"))
   : {};
@@ -190,7 +195,7 @@ if (MOCK) {
     (await ask("Looker base URL, e.g. https://x.cloud.looker.com"));
   if (!base)
     die(
-      "A Looker base URL is required; the function has nothing to read without it.\n\n      To test without one: npm run deploy -- --mock",
+      "A Looker base URL is required; the function has nothing to read without it.\n\n      To test without one: npm run deploy -- --profile dev --mock",
     );
   // The publisher refuses anything else at run time. Refusing it here saves a deploy.
   if (!base.startsWith("https://"))
@@ -412,6 +417,9 @@ if (!MOCK) {
   console.log(`  The embed tag is at ${origin}/v1/manifest.json\n`);
   console.log(
     `  The key goes in with the acceptance test, which stores it only on a PASS:\n`,
+  );
+  console.log(
+    `      curl -sO https://raw.githubusercontent.com/HatmanStack/coalition-widgets/main/scripts/acceptance.py`,
   );
   console.log(`      python3 acceptance.py --host <looker> --look <id> \\`);
   console.log(`        --secret ${outputs.LookerSecretArn}\n`);

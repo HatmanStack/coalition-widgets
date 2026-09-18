@@ -13,7 +13,7 @@
  *   node scripts/looker-stub.mjs --scenario=small-cell
  *   node scripts/looker-stub.mjs --scenario=list
  *   node scripts/looker-stub.mjs --port=9000
- *   node scripts/looker-stub.mjs --access=open         # a key broader than the spec
+ *   node scripts/looker-stub.mjs --access=explore      # a key broader than the spec
  */
 
 import { createServer } from "node:http";

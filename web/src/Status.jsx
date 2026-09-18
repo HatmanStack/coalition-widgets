@@ -47,10 +47,15 @@ const latestAsOf = (node) => {
   return best;
 };
 
+/* The object, null when there is none, or undefined when it could not be read. Kept apart so a
+   network failure is not reported as "never run". CloudFront answers 403, not 404, for a key
+   that does not exist, because the bucket grants it no listing. */
 const read = (path) =>
   fetch(`${WIDGET_ORIGIN}/${path}`, { cache: "no-store" })
-    .then((r) => (r.ok ? r.json() : null))
-    .catch(() => null);
+    .then((r) =>
+      r.ok ? r.json() : r.status === 403 || r.status === 404 ? null : undefined,
+    )
+    .catch(() => undefined);
 
 const ago = (iso) => {
   const s = (new Date(iso).getTime() - Date.now()) / 1000;
@@ -130,9 +135,12 @@ export default function Status({ manifest }) {
           </thead>
           <tbody>
             {rows.map(({ cadence, status, data }) => {
-              const [tone, words] = status
-                ? OUTCOMES[status.outcome] || ["bad", status.outcome]
-                : ["", "Never run"];
+              const [tone, words] =
+                status === undefined
+                  ? ["bad", "Could not read the status"]
+                  : status
+                    ? OUTCOMES[status.outcome] || ["bad", status.outcome]
+                    : ["", "Never run"];
               return (
                 <tr key={cadence}>
                   <td>

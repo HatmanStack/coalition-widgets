@@ -20,6 +20,9 @@ import urllib.request
 # that was fine a minute ago.
 _token = None
 _expires = 0.0
+# And only for the host and key it was issued for: the secret is read on every run, so a rotated
+# key in a warm container would otherwise go on using the old key's session.
+_issued_for = None
 
 _LOOPBACK = {"localhost", "127.0.0.1", "::1"}
 
@@ -56,10 +59,10 @@ def _base(base_url: str) -> str:
 
 
 def login(base_url: str, client_id: str, client_secret: str) -> str:
-    global _token, _expires
-    if _token and time.time() < _expires:
-        return _token
+    global _token, _expires, _issued_for
     base_url = _base(base_url)
+    if _token and _issued_for == (base_url, client_id) and time.time() < _expires:
+        return _token
     body = urllib.parse.urlencode(
         {"client_id": client_id, "client_secret": client_secret}
     ).encode()
@@ -69,6 +72,7 @@ def login(base_url: str, client_id: str, client_secret: str) -> str:
     with _open(request, timeout=15) as response:
         body = json.loads(response.read())
     _token = body["access_token"]
+    _issued_for = (base_url, client_id)
     # Five minutes early, so a token is never handed to a run that outlasts it.
     _expires = time.time() + int(body.get("expires_in", 3600)) - 300
     return _token
