@@ -8,6 +8,7 @@
  *
  *   npm run deploy -- --profile uwp --looker-url https://x.cloud.looker.com \
  *                     --look-id Quarterly=123 --look-id County=456        a real Looker
+ *   npm run deploy -- --profile uwp --schedule-state ENABLED               turn the schedules on
  *
  * Order is forced, not a preference. The bundle bakes in the data origin at build time, and the
  * origin is the CloudFront hostname, which does not exist until the stack does. So: deploy,
@@ -226,6 +227,15 @@ if (MOCK) {
   ];
 }
 
+/* The schedules ship DISABLED and this is how they change. Left out, the stack keeps whatever it
+   had: SAM passes the previous value of any parameter not given. */
+const scheduleState = flag("schedule-state");
+if (scheduleState) {
+  if (!["ENABLED", "DISABLED"].includes(scheduleState))
+    die(`--schedule-state takes ENABLED or DISABLED, got ${scheduleState}`);
+  overrides.push(`ScheduleState=${scheduleState}`);
+}
+
 if (DRY) {
   line("Dry run");
   console.log(
@@ -418,8 +428,25 @@ if (!MOCK) {
   console.log(
     `  The key goes in with the acceptance test, which stores it only on a PASS:\n`,
   );
+  /* Pinned to the commit that last changed the script, not to main. It handles the key, so what
+     runs should be exactly what was reviewed, and a later push must not change it underneath. A
+     commit that was never pushed gives a URL that 404s, which is loud. */
+  const rev = run("git", [
+    "log",
+    "-1",
+    "--format=%H",
+    "--",
+    "scripts/acceptance.py",
+  ]).out.trim();
+  if (
+    run("git", ["diff", "--quiet", "HEAD", "--", "scripts/acceptance.py"])
+      .code !== 0
+  )
+    warn(
+      "scripts/acceptance.py has uncommitted changes; this URL is the committed version",
+    );
   console.log(
-    `      curl -sO https://raw.githubusercontent.com/HatmanStack/coalition-widgets/main/scripts/acceptance.py`,
+    `      curl -sO https://raw.githubusercontent.com/HatmanStack/coalition-widgets/${rev}/scripts/acceptance.py`,
   );
   console.log(`      python3 acceptance.py --host <looker> --look <id> \\`);
   console.log(`        --secret ${outputs.LookerSecretArn}\n`);

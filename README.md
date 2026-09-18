@@ -76,23 +76,28 @@ whoever holds the key, in CloudShell. It stores the key only if the key runs its
 refused 403 on everything else, and prints no data:
 
 ```bash
-curl -sO https://raw.githubusercontent.com/HatmanStack/coalition-widgets/main/scripts/acceptance.py
+curl -sO https://raw.githubusercontent.com/HatmanStack/coalition-widgets/<commit>/scripts/acceptance.py
 python3 acceptance.py --host https://x.cloud.looker.com --look 123 --secret <LookerSecretArn>
 ```
 
-There are two schedules, one per cadence, each passing its own `Input`:
+`<commit>` is the commit that last changed the script, not `main`: it handles the key, so what
+runs should be exactly what was reviewed. The deploy prints this line with it filled in, and
+`git log -1 --format=%H -- scripts/acceptance.py` gives it too.
+
+There are three schedules, each passing its own cadence. `annual` has none and runs by hand.
 
 | Cadence   | Parameter           | Default           | Writes                   |
 | --------- | ------------------- | ----------------- | ------------------------ |
 | quarterly | `QuarterlySchedule` | `rate(1 hour)`    | `v1/data/quarterly.json` |
 | live      | `LiveSchedule`      | `rate(5 minutes)` | `v1/data/live.json`      |
+| weekly    | `WeeklySchedule`    | `rate(1 day)`     | `v1/data/weekly.json`    |
 
-Both ship `DISABLED`. Watch a manual run first, then enable:
+All ship `DISABLED`. Watch a manual run first, then enable:
 
 ```bash
 aws lambda invoke --function-name <stack>-PublisherFunction-… \
-  --payload '{"cadence":"quarterly"}' /dev/stdout
-npm run deploy -- --yes   # with ScheduleState=ENABLED
+  --payload '{"cadence":"quarterly"}' --cli-binary-format raw-in-base64-out /dev/stdout
+npm run deploy -- --profile <profile> --schedule-state ENABLED
 ```
 
 An unrecognised cadence is refused before the secret is read, so a typo costs nothing and writes
