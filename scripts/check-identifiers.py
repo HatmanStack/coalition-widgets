@@ -83,16 +83,21 @@ CLEAN = [
 AS_OF = "2026-03-31T23:59:59Z"
 
 # The as-of is the one Looker string exempt from the scan, on the grounds that it is a timestamp.
-# So it has to actually be one: shaped like an instant AND a real instant. A value that is merely
-# shaped like one would be published unread.
+# So it has to actually be one: shaped like a date or an instant AND a real one. A value that is
+# merely shaped like one would be published unread. Each case names what is published, or None
+# for a refusal — Looker's own forms go out rebuilt in the one form the widget reads.
 TIMESTAMPS = [
-    ("2026-03-31T23:59:59Z", True),
-    ("2026-02-31T25:61:61Z", False),  # shaped like an instant, is not a moment in time
-    ("2026-13-01T00:00:00Z", False),  # month 13
-    ("2026-2-3T1:2:3Z", False),  # a real date, not the literal form
-    ("2026-03-31", False),  # a date with no time
-    ("intake.coordinator@example.invalid", False),
-    ("", False),
+    ("2026-03-31T23:59:59Z", "2026-03-31T23:59:59Z"),
+    ("2026-03-31 23:59:59", "2026-03-31T23:59:59Z"),  # Looker's datetime
+    ("2026-03-31", "2026-03-31T23:59:59Z"),  # Looker's date: the end of that day
+    ("2026-02-31T25:61:61Z", None),  # shaped like an instant, is not a moment in time
+    ("2026-13-01T00:00:00Z", None),  # month 13
+    ("2026-02-30", None),  # shaped like a date, is not one
+    ("2026-2-3T1:2:3Z", None),  # a real date, not the literal form
+    ("2026-03-31T23:59:59", None),  # neither Looker's form nor UTC
+    ("03/31/2026", None),
+    ("intake.coordinator@example.invalid", None),
+    ("", None),
 ]
 
 # Shaped like `build` produces, because the scan walks the payload rather than the four places
@@ -246,16 +251,15 @@ case(
     message or "",
 )
 
-for text, ok in TIMESTAMPS:
+for text, expected in TIMESTAMPS:
     try:
-        app._timestamp(text, "as_of", "w")
-        refused = False
+        published = app._timestamp(text, "as_of", "w")
     except app.Refused:
-        refused = True
+        published = None
     case(
-        f"as-of {'accepted' if ok else 'refused '}: {text[:30]!r}",
-        refused != ok,
-        "accepted" if refused != ok else "",
+        f"as-of {'accepted' if expected else 'refused '}: {text[:30]!r}",
+        published == expected,
+        f"published {published!r}" if published != expected else "",
     )
 
 width = max(len(name) for name, _, _ in results)

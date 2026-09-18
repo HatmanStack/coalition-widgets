@@ -61,33 +61,46 @@ def _number(value, field):
 # the measures mapper both accepted any non-empty string, so whatever the as-of column happened
 # to carry went out unscanned and unread, onto the period line of a partner's page.
 #
-# So it is validated rather than exempted. A string matching this cannot carry an identifier,
-# which is what earns the exemption in `NOT_FROM_LOOKER`.
-_TIMESTAMP = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+# So it is validated rather than exempted, and what is published is rebuilt from the parsed date
+# rather than passed through. A string this returns cannot carry an identifier, which is what
+# earns the exemption in `NOT_FROM_LOOKER`.
+#
+# Three forms in, one out. Looker sends a dimension as its wall-clock value with no zone —
+# `2026-03-31` for a date, `2026-03-31 23:59:59` for a time — and what is published is an instant
+# in UTC. They are joined on the calendar date: a date becomes the end of that day, and a
+# wall-clock time keeps its digits and is labelled UTC. That is not a time-zone conversion and
+# does not pretend to be one. It is safe because the widget prints the date alone, in UTC, so the
+# date a reader sees is exactly the date Looker reported; the time is never shown.
+_FORMS = (
+    (re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$"), "%Y-%m-%dT%H:%M:%SZ"),
+    (re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$"), "%Y-%m-%d %H:%M:%S"),
+    (re.compile(r"^\d{4}-\d{2}-\d{2}$"), "%Y-%m-%d"),
+)
 
 
 def _timestamp(value, field, where):
     if not isinstance(value, str) or not value:
         raise Refused(f"{where}: {field} is missing, so there would be no as-of")
-    # Shape first, then the calendar. The pattern alone accepts 2026-02-31T25:61:61Z — correctly
+    # Shape first, then the calendar. A pattern alone accepts 2026-02-31T25:61:61Z — correctly
     # shaped and not a moment in time — and this value is exempt from the identifier scan on the
     # strength of being a timestamp, so "looks like one" is not enough. strptime alone is not
-    # enough either: it accepts 2026-3-1T1:2:3Z, and the exemption is only safe for the exact
-    # literal form.
-    if not _TIMESTAMP.match(value):
+    # enough either: it accepts 2026-3-1T1:2:3Z, and the exemption is only safe for exact forms.
+    form = next((f for pattern, f in _FORMS if pattern.match(value)), None)
+    if form is None:
         raise Refused(
-            f"{where}: {field} is {value!r}, which is not an as-of. Expected an ISO 8601 "
-            f"instant in UTC, as in 2026-03-31T23:59:59Z."
+            f"{where}: {field} is {value!r}, which is not an as-of. Expected a date or a "
+            f"time, as in 2026-03-31, 2026-03-31 23:59:59 or 2026-03-31T23:59:59Z."
         )
     try:
-        # The trailing Z is UTC and the pattern above has already insisted on it, so say so
-        # rather than building a naive datetime and leaving the zone to be assumed later.
-        datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        # Labelled UTC, as above: the digits Looker sent, not a conversion of them.
+        moment = datetime.strptime(value, form).replace(tzinfo=timezone.utc)
     except ValueError:
         raise Refused(
             f"{where}: {field} is {value!r}, which is shaped like an as-of but is not a date."
         ) from None
-    return value
+    if form == "%Y-%m-%d":
+        moment = moment.replace(hour=23, minute=59, second=59)
+    return moment.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _only_named(row, allowed, where):
@@ -518,11 +531,20 @@ def build(cadence, rows_by_look):
     # annual file has no headline measures and the live file has no breakdowns, and neither
     # should need an empty entry written into the registry to say so.
     as_of = None
-    if spec.get("measures"):
+    if spec.get("measures") and "measures" in rows_by_look:
         measures, as_of = measures_from(rows_by_look["measures"], spec, cadence)
         payload["measures"] = measures
 
     if spec.get("breakdowns"):
+        # A breakdown reconciles against a headline count and takes its as-of from the same
+        # row, so without the measures Look there is nothing to check it against. Refused by
+        # name rather than left to a KeyError.
+        orphans = [b.id for b in spec["breakdowns"] if b.id in rows_by_look]
+        if orphans and "measures" not in payload:
+            raise Refused(
+                f"{cadence}: {', '.join(orphans)} reconcile against the measures Look, and "
+                f"{spec['look']} is not set"
+            )
         payload["breakdowns"] = {
             b.id: breakdown_from(
                 rows_by_look[b.id],
@@ -607,6 +629,23 @@ def handler(event, _context=None):
         # First, before any I/O: an unknown cadence should not reach the secret or the login.
         spec = spec_for(cadence)
 
+        # One Look per block, named by an environment variable derived from the block's id. A
+        # block whose Look ID is unset is left out of the payload rather than published empty.
+        looks = {}
+        if spec.get("measures") and os.environ.get(spec["look"]):
+            looks["measures"] = os.environ[spec["look"]]
+        wanted = [b.id for b in spec.get("breakdowns", ())]
+        wanted += [s.id for s in spec.get("series", ())]
+        wanted += [k for k in ("flows", "comparisons", "rates") if spec.get(k)]
+        for block in wanted:
+            if os.environ.get(f"{block.upper()}_LOOK_ID"):
+                looks[block] = os.environ[f"{block.upper()}_LOOK_ID"]
+
+        # A stack goes live one Look at a time. A cadence with none wired yet is not a failure,
+        # and a schedule firing for it should neither log in nor raise the alarm.
+        if not looks:
+            return {"published": None, "skipped": f"no Look configured for {cadence}"}
+
         base = os.environ["LOOKER_BASE_URL"]
         bucket = os.environ["BUCKET"]
         secret = json.loads(
@@ -616,25 +655,9 @@ def handler(event, _context=None):
         )
         token = looker.login(base, secret["client_id"], secret["client_secret"])
 
-        # One Look per block, named by an environment variable derived from the block's id. A
-        # block whose Look ID is unset is left out of the payload rather than published empty.
-        rows = {}
-        if spec.get("measures"):
-            rows["measures"] = looker.run_look(base, token, os.environ[spec["look"]])
-
-        wanted = [b.id for b in spec.get("breakdowns", ())]
-        wanted += [s.id for s in spec.get("series", ())]
-        if spec.get("flows"):
-            wanted.append("flows")
-        if spec.get("comparisons"):
-            wanted.append("comparisons")
-        if spec.get("rates"):
-            wanted.append("rates")
-
-        for block in wanted:
-            look = os.environ.get(f"{block.upper()}_LOOK_ID")
-            if look:
-                rows[block] = looker.run_look(base, token, look)
+        rows = {
+            block: looker.run_look(base, token, look) for block, look in looks.items()
+        }
 
         key = publish(build(cadence, rows), bucket)
     except Exception as error:

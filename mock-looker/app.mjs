@@ -14,9 +14,10 @@
  * set it to `small-cell`, invoke, and the alarm should fire with nothing written.
  */
 
-import { SCENARIOS, respond } from "./scenarios.mjs";
+import { ACCESS, SCENARIOS, respond } from "./scenarios.mjs";
 
 const SCENARIO = process.env.SCENARIO || "valid";
+const POSTURE = process.env.ACCESS || "scoped";
 
 export const handler = async (event) => {
   if (!SCENARIOS[SCENARIO]) {
@@ -27,6 +28,16 @@ export const handler = async (event) => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         message: `unknown SCENARIO ${SCENARIO}. Known: ${Object.keys(SCENARIOS).join(", ")}`,
+      }),
+    };
+  }
+
+  if (!ACCESS[POSTURE]) {
+    return {
+      statusCode: 500,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        message: `unknown ACCESS ${POSTURE}. Known: ${Object.keys(ACCESS).join(", ")}`,
       }),
     };
   }
@@ -51,6 +62,7 @@ export const handler = async (event) => {
       body,
     },
     SCENARIO,
+    POSTURE,
   );
 
   // One line per request into CloudWatch, so a failed publish can be read against what the mock
@@ -62,6 +74,6 @@ export const handler = async (event) => {
   return {
     statusCode: result.status,
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(result.body),
+    body: result.status === 204 ? "" : JSON.stringify(result.body),
   };
 };
