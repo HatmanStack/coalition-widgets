@@ -58,35 +58,46 @@ configured for — the two facts in it that can go silently out of date.
 ## Deploy
 
 ```bash
-aws sso login --profile dev
+aws sso login --profile <profile>
 npm install
-npm run deploy
+npm run deploy -- --profile <profile> --looker-url https://x.cloud.looker.com \
+                  --look-id Quarterly=123
 ```
 
-It asks for the Looker base URL and Look IDs, deploys the stack, then starts the CodeBuild
-project that builds and publishes the bundle. The order is forced: the bundle bakes in the data
-origin at build time and the origin is the CloudFront hostname, which does not exist until the
-stack does.
+`--profile` is required; which account a deploy targets is never assumed. `--look-id Name=ID`
+sets any Look the template takes, and may be repeated; a cadence with no Look set is skipped
+rather than failed, so a stack can go live one Look at a time. It deploys the stack, then starts
+the CodeBuild project that builds and publishes the bundle. The order is forced: the bundle bakes
+in the data origin at build time and the origin is the CloudFront hostname, which does not exist
+until the stack does.
 
-Put the Looker credential in the secret the stack creates, as JSON:
+The Looker key goes into the secret the stack creates through the acceptance test, run by
+whoever holds the key, in CloudShell. It stores the key only if the key runs its Look and is
+refused 403 on everything else, and prints no data:
 
-```json
-{ "client_id": "...", "client_secret": "..." }
+```bash
+curl -sO https://raw.githubusercontent.com/HatmanStack/coalition-widgets/<commit>/scripts/acceptance.py
+python3 acceptance.py --host https://x.cloud.looker.com --look 123 --secret <LookerSecretArn>
 ```
 
-There are two schedules, one per cadence, each passing its own `Input`:
+`<commit>` is the commit that last changed the script, not `main`: it handles the key, so what
+runs should be exactly what was reviewed. The deploy prints this line with it filled in, and
+`git log -1 --format=%H -- scripts/acceptance.py` gives it too.
+
+There are three schedules, each passing its own cadence. `annual` has none and runs by hand.
 
 | Cadence   | Parameter           | Default           | Writes                   |
 | --------- | ------------------- | ----------------- | ------------------------ |
 | quarterly | `QuarterlySchedule` | `rate(1 hour)`    | `v1/data/quarterly.json` |
 | live      | `LiveSchedule`      | `rate(5 minutes)` | `v1/data/live.json`      |
+| weekly    | `WeeklySchedule`    | `rate(1 day)`     | `v1/data/weekly.json`    |
 
-Both ship `DISABLED`. Watch a manual run first, then enable:
+All ship `DISABLED`. Watch a manual run first, then enable:
 
 ```bash
-aws lambda invoke --function-name <stack>-PublisherFunction-… \
-  --payload '{"cadence":"quarterly"}' /dev/stdout
-npm run deploy -- --yes   # with ScheduleState=ENABLED
+aws lambda invoke --function-name <stack>-PublisherFunction-… --profile <profile> \
+  --payload '{"cadence":"quarterly"}' --cli-binary-format raw-in-base64-out /dev/stdout
+npm run deploy -- --profile <profile> --schedule-state ENABLED
 ```
 
 An unrecognised cadence is refused before the secret is read, so a typo costs nothing and writes
@@ -271,8 +282,8 @@ _into the stack_ — a second function behind a Function URL that the publisher 
 it would read Looker:
 
 ```bash
-npm run deploy -- --mock                                # valid data
-npm run deploy -- --mock --scenario small-cell          # the publisher must refuse this
+npm run deploy -- --profile dev --mock                          # valid data
+npm run deploy -- --profile dev --mock --scenario small-cell    # the publisher must refuse this
 ```
 
 No Looker URL, no Look IDs, no secret to populate: the template substitutes the mock's own
@@ -289,8 +300,8 @@ The scenario is the point of deploying this. Set a hostile one, invoke, and watc
 function refuse, write nothing, and raise `PublishFailed` on the real alarm:
 
 ```bash
-aws lambda invoke --function-name <stack>-PublisherFunction-… \
-  --payload '{"cadence":"quarterly"}' /dev/stdout
+aws lambda invoke --function-name <stack>-PublisherFunction-… --profile dev \
+  --payload '{"cadence":"quarterly"}' --cli-binary-format raw-in-base64-out /dev/stdout
 ```
 
 ## Building the bundle

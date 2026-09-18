@@ -10,10 +10,12 @@ import { useEffect, useState } from "react";
 import { useManifest, LLM_TXT, WIDGET_ORIGIN } from "./manifest.js";
 import Help from "./Help.jsx";
 import Builder from "./Builder.jsx";
+import Status from "./Status.jsx";
 
 const PAGES = [
   ["", "How it works"],
   ["builder", "Build your tag"],
+  ["status", "Status"],
 ];
 
 function useRoute() {
@@ -97,6 +99,8 @@ export default function App() {
         {state.status === "ready" &&
           (onBuilder ? (
             <Builder manifest={state.manifest} />
+          ) : route === "status" ? (
+            <Status manifest={state.manifest} />
           ) : (
             <Help manifest={state.manifest} />
           ))}

@@ -14,9 +14,13 @@
  */
 
 import { spawn, spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { SCENARIOS } from "../mock-looker/scenarios.mjs";
 
-const ROOT = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
+const ROOT = fileURLToPath(new URL("..", import.meta.url)).replace(
+  /[\\/]$/,
+  "",
+);
 const PORT = 8241;
 
 const names = Object.keys(SCENARIOS);

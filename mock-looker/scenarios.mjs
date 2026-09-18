@@ -456,6 +456,140 @@ export const SCENARIOS = {
 
 export const TOKEN = "stub-token";
 
+/* What the API key is allowed to do, independent of what the data says. A scenario is about the
+   rows; this is about the key, which is what `scripts/acceptance.py` probes before a real one is
+   trusted with anything. The publisher only ever runs Looks, so every posture serves it the
+   same — which is the point: a key that publishes perfectly can still be far too broad. */
+/* One posture per permission, so each probe has to catch its own. A posture that kept both
+   explore and SQL Runner let a broken inline-query check hide behind the SQL Runner one: the
+   verdict was still FAIL, and the check on it still passed. */
+export const ACCESS = {
+  scoped: {
+    why: "the spec: runs its Looks, refused 403 on everything else, one key, no groups",
+    expect: "PASS",
+  },
+  explore: {
+    why: "explore kept from the transfer, with a group, a stale key and another folder",
+    expect: "FAIL",
+    explore: true,
+    inherited: true,
+  },
+  "sql-runner": {
+    why: "SQL Runner kept, everything else as specified",
+    expect: "FAIL",
+    sqlRunner: true,
+  },
+  masked: {
+    why: "refuses by 404 rather than 403, which proves nothing either way",
+    expect: "INCONCLUSIVE",
+    refusal: 404,
+  },
+};
+
+// Invented. One public folder holding every Look, and one an inherited group would add.
+const PUBLIC_FOLDER = "41";
+const OTHER_FOLDER = "7";
+
+const lookMeta = (id) => {
+  const fields = Object.keys(VALID[LOOKS[id]]()[0]);
+  return {
+    id,
+    folder_id: PUBLIC_FOLDER,
+    query: { model: "clarity", view: fields[0].split(".")[0], fields },
+  };
+};
+
+const refused = (key, what) => {
+  const status = key.refusal || 403;
+  return {
+    status,
+    body: { message: status === 404 ? "Not found" : "Forbidden" },
+    log: `${what} -> ${status}`,
+  };
+};
+
+/* The endpoints only the acceptance test calls. Returns undefined for anything else, so the
+   publisher's two routes below stay exactly as they were. */
+function probe({ method, path, query }, access) {
+  const key = ACCESS[access];
+
+  if (method === "GET" && path === "/api/4.0/user") {
+    return {
+      status: 200,
+      body: {
+        id: "58",
+        role_ids: ["12"],
+        group_ids: key.inherited ? ["3"] : [],
+        credentials_api3: key.inherited
+          ? [
+              { id: "3", is_disabled: false },
+              { id: "9", is_disabled: false },
+            ]
+          : [{ id: "9", is_disabled: false }],
+      },
+      log: `user -> [${access}]`,
+    };
+  }
+
+  if (method === "GET" && path === "/api/4.0/looks") {
+    const looks = Object.keys(LOOKS).map((id) => ({
+      id,
+      folder_id: PUBLIC_FOLDER,
+    }));
+    if (key.inherited)
+      looks.push(
+        { id: "77", folder_id: OTHER_FOLDER },
+        { id: "78", folder_id: OTHER_FOLDER },
+      );
+    return {
+      status: 200,
+      body: looks,
+      log: `looks (${query}) -> ${looks.length} [${access}]`,
+    };
+  }
+
+  const meta = path.match(/^\/api\/4\.0\/looks\/([^/]+)$/);
+  if (method === "GET" && meta) {
+    if (!LOOKS[meta[1]])
+      return {
+        status: 404,
+        body: { message: "Not found" },
+        log: `look meta ${meta[1]} -> 404`,
+      };
+    return {
+      status: 200,
+      body: lookMeta(meta[1]),
+      log: `look meta ${meta[1]} -> ok`,
+    };
+  }
+
+  if (method === "POST" && path === "/api/4.0/queries/run/json") {
+    return key.explore
+      ? {
+          status: 200,
+          body: [{ [F.active]: 1263 }],
+          log: `inline query -> 200 RAN [${access}]`,
+        }
+      : refused(key, "inline query");
+  }
+
+  if (method === "POST" && path === "/api/4.0/sql_queries") {
+    return key.sqlRunner
+      ? {
+          status: 200,
+          body: { slug: "aBcD123" },
+          log: `sql_queries -> 200 CREATED [${access}]`,
+        }
+      : refused(key, "sql_queries");
+  }
+
+  if (method === "DELETE" && path === "/api/4.0/logout") {
+    return { status: 204, body: "", log: "logout -> 204" };
+  }
+
+  return undefined;
+}
+
 export function rowsFor(scenario, look) {
   const override = SCENARIOS[scenario].rows(look);
   return override === undefined ? VALID[look]() : override;
@@ -464,8 +598,23 @@ export function rowsFor(scenario, look) {
 /* The two endpoints the publisher uses, as a pure function of the request. Both callers are
    thin shells over this: the local stub wraps it in an http server, the deployed one in a
    Lambda handler, and neither decides anything on its own. */
-export function respond({ method, path, query, headers, body }, scenario) {
+export function respond(
+  { method, path, query, headers, body },
+  scenario,
+  access = "scoped",
+) {
   const auth = headers.authorization || headers.Authorization || "";
+
+  const probed = probe({ method, path, query }, access);
+  if (probed) {
+    return auth === `token ${TOKEN}`
+      ? probed
+      : {
+          status: 401,
+          body: { message: "Not authenticated" },
+          log: `${method} ${path} -> 401`,
+        };
+  }
 
   if (method === "POST" && path === "/api/4.0/login") {
     const form = new URLSearchParams(body || "");

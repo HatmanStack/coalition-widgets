@@ -13,10 +13,16 @@
  *   node scripts/looker-stub.mjs --scenario=small-cell
  *   node scripts/looker-stub.mjs --scenario=list
  *   node scripts/looker-stub.mjs --port=9000
+ *   node scripts/looker-stub.mjs --access=explore      # a key broader than the spec
  */
 
 import { createServer } from "node:http";
-import { LOOKS, SCENARIOS, respond } from "../mock-looker/scenarios.mjs";
+import {
+  ACCESS,
+  LOOKS,
+  SCENARIOS,
+  respond,
+} from "../mock-looker/scenarios.mjs";
 
 const arg = (name, fallback) => {
   const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -25,6 +31,8 @@ const arg = (name, fallback) => {
 
 const PORT = Number(arg("port", 8200));
 const SCENARIO = arg("scenario", "valid");
+// What the key may do, for rehearsing scripts/acceptance.py. The publisher sees no difference.
+const POSTURE = arg("access", "scoped");
 
 if (SCENARIO === "list") {
   console.log("\nscenarios:\n");
@@ -33,6 +41,13 @@ if (SCENARIO === "list") {
   }
   console.log();
   process.exit(0);
+}
+
+if (!ACCESS[POSTURE]) {
+  console.error(
+    `unknown access ${POSTURE}. Known: ${Object.keys(ACCESS).join(", ")}`,
+  );
+  process.exit(1);
 }
 
 if (!SCENARIOS[SCENARIO]) {
@@ -54,16 +69,17 @@ const server = createServer((req, res) => {
         body,
       },
       SCENARIO,
+      POSTURE,
     );
     console.log(`  ${result.log}`);
     res.writeHead(result.status, { "content-type": "application/json" });
-    res.end(JSON.stringify(result.body));
+    res.end(result.status === 204 ? "" : JSON.stringify(result.body));
   });
 });
 
 server.listen(PORT, () => {
   console.log(
-    `\nlooker stub on http://localhost:${PORT}   scenario: ${SCENARIO}`,
+    `\nlooker stub on http://localhost:${PORT}   scenario: ${SCENARIO}   access: ${POSTURE}`,
   );
   console.log(`  ${SCENARIOS[SCENARIO].why}`);
   console.log(

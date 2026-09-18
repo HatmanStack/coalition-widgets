@@ -640,3 +640,45 @@ footer {
     animation: none !important;
   }
 }
+
+/* ---- status ------------------------------------------------------------------------------ */
+
+table.status {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  font-size: 0.92rem;
+}
+table.status th {
+  text-align: left;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--rule);
+}
+table.status td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--rule-soft);
+  vertical-align: top;
+}
+/* Only the result wraps. "just now" broken over two lines in a column a word wide reads as two
+   separate facts. */
+table.status th,
+table.status td {
+  white-space: nowrap;
+}
+table.status td:nth-child(3) {
+  white-space: normal;
+}
+table.status td.ok {
+  color: #1d7a46;
+  font-weight: 600;
+}
+table.status td.bad {
+  color: #b3261e;
+}

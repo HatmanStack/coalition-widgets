@@ -64,7 +64,8 @@ cd web && npm run dev    the site. Reads the deployed distribution, not :8080, s
                          local bundle with VITE_WIDGET_ORIGIN in web/.env.local.
 npm test                 errors + layout + identifiers + llm-txt + scenarios
 npm run validate         sam validate --lint && cfn-lint
-npm run deploy -- --mock --yes        deploy with a fake Looker in the stack
+npm run deploy -- --profile dev --mock --yes    deploy with a fake Looker in the stack.
+                         --profile is required; the account is never assumed.
 node scripts/looker-stub.mjs --scenario=list
 ```
 

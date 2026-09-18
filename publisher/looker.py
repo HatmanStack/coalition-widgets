@@ -11,12 +11,32 @@ Two things about this API that are easy to get wrong and expensive to miss:
 """
 
 import json
+import time
 import urllib.parse
 import urllib.request
 
-_token = (
-    None  # cached across warm invocations; the login is ~1s and the token lasts an hour
-)
+# Cached across warm invocations; the login is ~1s. Until it expires, not forever: a warm
+# container can outlive the hour a token lasts, and the failure then reads as a 401 from a key
+# that was fine a minute ago.
+_token = None
+_expires = 0.0
+# And only for the host and key it was issued for: the secret is read on every run, so a rotated
+# key in a warm container would otherwise go on using the old key's session.
+_issued_for = None
+
+_LOOPBACK = {"localhost", "127.0.0.1", "::1"}
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Never follow a redirect. urllib carries the Authorization header to wherever it is sent,
+    so a redirect would hand the token to a host nobody configured. The Looker API has no reason
+    to issue one; if it does, the request fails and says so."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+_open = urllib.request.build_opener(_NoRedirect).open
 
 
 def _base(base_url: str) -> str:
@@ -26,22 +46,35 @@ def _base(base_url: str) -> str:
     Without this the request goes to `https://host//api/4.0/login`, which some servers route and
     some reject, and the failure reads as a credential problem rather than a typo.
     """
+    parts = urllib.parse.urlsplit(base_url)
+    # https only. Plain http is allowed to a loopback address, which is where the local stub runs.
+    if parts.scheme != "https" and not (
+        parts.scheme == "http" and parts.hostname in _LOOPBACK
+    ):
+        raise LookerError(
+            f"LOOKER_BASE_URL must be https (got {parts.scheme or 'no scheme'}://): the key and "
+            f"token would otherwise cross the network in clear"
+        )
     return base_url.rstrip("/")
 
 
 def login(base_url: str, client_id: str, client_secret: str) -> str:
-    global _token
-    if _token:
-        return _token
+    global _token, _expires, _issued_for
     base_url = _base(base_url)
+    if _token and _issued_for == (base_url, client_id) and time.time() < _expires:
+        return _token
     body = urllib.parse.urlencode(
         {"client_id": client_id, "client_secret": client_secret}
     ).encode()
     request = urllib.request.Request(
         f"{base_url}/api/4.0/login", data=body, method="POST"
     )
-    with urllib.request.urlopen(request, timeout=15) as response:
-        _token = json.loads(response.read())["access_token"]
+    with _open(request, timeout=15) as response:
+        body = json.loads(response.read())
+    _token = body["access_token"]
+    _issued_for = (base_url, client_id)
+    # Five minutes early, so a token is never handed to a run that outlasts it.
+    _expires = time.time() + int(body.get("expires_in", 3600)) - 300
     return _token
 
 
@@ -54,7 +87,7 @@ def run_look(base_url: str, token: str, look_id: str, limit: int = 500) -> list[
         f"{_base(base_url)}/api/4.0/looks/{look_id}/run/json?{query}",
         headers={"Authorization": f"token {token}"},
     )
-    with urllib.request.urlopen(request, timeout=30) as response:
+    with _open(request, timeout=30) as response:
         body = json.loads(response.read())
 
     if isinstance(body, dict):
