@@ -100,3 +100,9 @@ jobs:
         # scenario that starts publishing is a check that stopped working, and that is exactly
         # the failure this project exists to prevent.
         run: node scripts/check-scenarios.mjs
+      - name: Run the acceptance test against every key posture the mock can take
+        # The gate on the real Looker key. A key kept broader than the spec must FAIL, a refusal
+        # that is not a 403 must not read as a PASS, and neither the key nor a figure may print.
+        run: node scripts/check-acceptance.mjs
+      - name: Identifier scan and as-of checks
+        run: python3 scripts/check-identifiers.py
