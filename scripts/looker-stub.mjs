@@ -17,7 +17,12 @@
  */
 
 import { createServer } from "node:http";
-import { ACCESS, LOOKS, SCENARIOS, respond } from "../mock-looker/scenarios.mjs";
+import {
+  ACCESS,
+  LOOKS,
+  SCENARIOS,
+  respond,
+} from "../mock-looker/scenarios.mjs";
 
 const arg = (name, fallback) => {
   const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -39,7 +44,9 @@ if (SCENARIO === "list") {
 }
 
 if (!ACCESS[POSTURE]) {
-  console.error(`unknown access ${POSTURE}. Known: ${Object.keys(ACCESS).join(", ")}`);
+  console.error(
+    `unknown access ${POSTURE}. Known: ${Object.keys(ACCESS).join(", ")}`,
+  );
   process.exit(1);
 }
 
