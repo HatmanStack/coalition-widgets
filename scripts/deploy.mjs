@@ -35,7 +35,14 @@ const SKIP_BUNDLE = process.argv.includes("--skip-bundle");
 const YES = process.argv.includes("--yes");
 const flag = (n) => {
   const i = process.argv.indexOf(`--${n}`);
-  return i !== -1 ? process.argv[i + 1] : undefined;
+  if (i === -1) return undefined;
+  const value = process.argv[i + 1];
+  // Given with nothing after it is a mistake, not an absence. `--schedule-state` at the end of
+  // the line was dropped without a word and the stack kept its old state; `--profile` followed
+  // by another flag would have named that flag as the account.
+  if (value === undefined || value.startsWith("--"))
+    die(`--${n} needs a value`);
+  return value;
 };
 
 const line = (t) =>

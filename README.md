@@ -95,7 +95,7 @@ There are three schedules, each passing its own cadence. `annual` has none and r
 All ship `DISABLED`. Watch a manual run first, then enable:
 
 ```bash
-aws lambda invoke --function-name <stack>-PublisherFunction-… \
+aws lambda invoke --function-name <stack>-PublisherFunction-… --profile <profile> \
   --payload '{"cadence":"quarterly"}' --cli-binary-format raw-in-base64-out /dev/stdout
 npm run deploy -- --profile <profile> --schedule-state ENABLED
 ```
@@ -300,8 +300,8 @@ The scenario is the point of deploying this. Set a hostile one, invoke, and watc
 function refuse, write nothing, and raise `PublishFailed` on the real alarm:
 
 ```bash
-aws lambda invoke --function-name <stack>-PublisherFunction-… \
-  --payload '{"cadence":"quarterly"}' /dev/stdout
+aws lambda invoke --function-name <stack>-PublisherFunction-… --profile dev \
+  --payload '{"cadence":"quarterly"}' --cli-binary-format raw-in-base64-out /dev/stdout
 ```
 
 ## Building the bundle
