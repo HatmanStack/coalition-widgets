@@ -115,6 +115,16 @@ for (const runner of chosen)
     console.log(
       `  ${problems.length ? "FAIL" : "ok  "}  ${runner.padEnd(3)}  ${name.padEnd(width)}  ${problems.join("; ") || posture.expect}`,
     );
+    // What it actually printed, when it did not do what it should. A guard that reports a
+    // failure without the evidence for it sends whoever reads it back to reproduce by hand.
+    if (problems.length)
+      console.log(
+        output
+          .trimEnd()
+          .split("\n")
+          .map((l) => `          | ${l}`)
+          .join("\n") || "          | (no output)",
+      );
   }
 
 const total = chosen.length * Object.keys(ACCESS).length;
