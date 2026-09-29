@@ -39,15 +39,21 @@ done
 # https only, except a loopback address, which is where the mock runs for rehearsal. The host is
 # taken apart rather than matched with a glob: http://localhost* also matches
 # http://localhost.attacker.example, and the key would have gone there in clear.
+case "$HOST" in *://*) ;; *) HOST="https://$HOST" ;; esac
 SCHEME="${HOST%%://*}"
 REST="${HOST#*://}"
 HOSTNAME_ONLY="${REST%%/*}"
-HOSTNAME_ONLY="${HOSTNAME_ONLY%%:*}"
+# A bracketed IPv6 literal keeps its brackets; only a trailing :port comes off. Stripping from
+# the first colon turned [::1] into [.
+case "$HOSTNAME_ONLY" in
+  \[*\]*) HOSTNAME_ONLY="${HOSTNAME_ONLY%%]*}]" ;;
+  *) HOSTNAME_ONLY="${HOSTNAME_ONLY%%:*}" ;;
+esac
 case "$SCHEME" in
   https) ;;
   http)
     case "$HOSTNAME_ONLY" in
-      localhost|127.0.0.1|'[::1]') ;;
+      localhost|127.0.0.1|'[::1]'|'::1') ;;
       *) echo "refusing http:// to $HOSTNAME_ONLY: the key would cross the network in clear"; exit 3 ;;
     esac ;;
   *) echo "refusing $SCHEME://: the key would cross the network in clear"; exit 3 ;;
@@ -138,9 +144,13 @@ classify() { # status file -> sets OUTCOME and DETAIL
 code=$(api GET "/looks/$LOOK?fields=id,folder_id,query" look.json)
 MODEL=""; VIEW=""; FOLDER=""
 if [ "$code" = "200" ]; then
-  MODEL=$(tr ',' '\n' < "$TMP/look.json" | grep '"model"' | head -1 | cut -d'"' -f4)
-  VIEW=$(tr ',' '\n' < "$TMP/look.json" | grep '"view"' | head -1 | cut -d'"' -f4)
-  FOLDER=$(tr ',' '\n' < "$TMP/look.json" | grep '"folder_id"' | head -1 | cut -d'"' -f4)
+  # Split on braces as well as commas. "model" and "view" live inside "query":{...}, so a
+  # comma-only split leaves `"query":{"model":"clarity"` and the fourth quoted field is the word
+  # model, not clarity - which sent both probes at a model no instance has.
+  FIELD_LINES=$(tr ',{}' '\n\n\n' < "$TMP/look.json")
+  MODEL=$(echo "$FIELD_LINES" | grep '"model"' | head -1 | cut -d'"' -f4)
+  VIEW=$(echo "$FIELD_LINES" | grep '"view"' | head -1 | cut -d'"' -f4)
+  FOLDER=$(echo "$FIELD_LINES" | grep '"folder_id"' | head -1 | cut -d'"' -f4)
 fi
 
 code=$(api GET "/looks/$LOOK/run/json?apply_formatting=false&limit=500" rows.json)
@@ -148,21 +158,18 @@ first=$(head -c1 "$TMP/rows.json" 2>/dev/null)
 if [ "$code" = "200" ] && [ "$first" = "[" ]; then
   line run_look ok "200, $(rows_in "$TMP/rows.json")"
 elif [ "$code" = "200" ]; then
-  line run_look ?? "200 with an error object: the Look did not run"
+  line run_look '??' "200 with an error object: the Look did not run"
 else
-  line run_look ?? "$code: the key cannot run Look $LOOK"
+  line run_look '??' "$code: the key cannot run Look $LOOK"
 fi
 
-if [ -z "$MODEL" ] || [ -z "$VIEW" ]; then
-  line "own query" ?? "could not read the Look's query to build the probe"
-  line "SQL Runner" ?? "no model to probe with"
+# The Look's own fields, as they came back, so the probe asks for nothing it could not see.
+LOOK_FIELDS=$(tr '\n' ' ' < "$TMP/look.json" 2>/dev/null | sed -n 's/.*"fields":\[\([^]]*\)\].*/\1/p')
+if [ -z "$MODEL" ] || [ -z "$VIEW" ] || [ -z "$LOOK_FIELDS" ]; then
+  line "own query" '??' "could not read the Look's query to build the probe"
+  line "SQL Runner" '??' "no model to probe with"
 else
-  if [ -n "$CLIENT_FIELD" ]; then FIELDS="\"$CLIENT_FIELD\""
-  else
-    # The Look's own fields, as they came back, so the probe asks for nothing it could not see.
-    FIELDS=$(tr '\n' ' ' < "$TMP/look.json" | sed -n 's/.*"fields":\[\([^]]*\)\].*/\1/p')
-  fi
-  [ -n "$FIELDS" ] || FIELDS="\"$VIEW.count\""
+  if [ -n "$CLIENT_FIELD" ]; then FIELDS="\"$CLIENT_FIELD\""; else FIELDS="$LOOK_FIELDS"; fi
   code=$(api POST "/queries/run/json" probe.json -H "Content-Type: application/json" \
     -d "{\"model\":\"$MODEL\",\"view\":\"$VIEW\",\"fields\":[$FIELDS],\"limit\":\"1\"}")
   classify "$code" "$TMP/probe.json"; line "own query" "$OUTCOME" "$DETAIL"
@@ -176,11 +183,11 @@ fi
 # decide. Read with grep rather than a JSON parser, so these are counts and nothing more.
 code=$(api GET "/user?fields=id,group_ids,credentials_api3" user.json)
 if [ "$code" = "200" ]; then
-  groups=$(sed -n 's/.*"group_ids":\[\([^]]*\)\].*/\1/p' "$TMP/user.json")
+  groups=$(sed -n 's/.*"group_ids":[[:space:]]*\[\([^]]*\)\].*/\1/p' "$TMP/user.json")
   if [ -n "$groups" ]; then
     echo "  note  the API user is in $(( $(echo "$groups" | tr -cd ',' | wc -c | tr -d ' ') + 1 )) group(s); the spec said none"
   fi
-  keys=$(grep -o '"is_disabled":false' "$TMP/user.json" | wc -l | tr -d ' ')
+  keys=$(grep -o '"is_disabled":[[:space:]]*false' "$TMP/user.json" | wc -l | tr -d ' ')
   [ "$keys" -gt 1 ] && echo "  note  the API user holds $keys active API keys; the spec said one"
 else
   echo "  note  could not read the API user ($code)"

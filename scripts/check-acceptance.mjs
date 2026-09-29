@@ -18,6 +18,7 @@
  */
 
 import { spawn, spawnSync } from "node:child_process";
+import { once } from "node:events";
 import { readFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { mkdtempSync, readdirSync, rmSync } from "node:fs";
@@ -58,11 +59,17 @@ const RUNNERS = {
   },
 };
 const asked = process.argv.find((a) => a.startsWith("--runner"));
+const askedValue = asked?.includes("=")
+  ? asked.split("=")[1]
+  : process.argv[process.argv.indexOf(asked) + 1];
+if (asked && !askedValue) {
+  console.error(
+    `--runner needs a value. Known: ${Object.keys(RUNNERS).join(", ")}`,
+  );
+  process.exit(1);
+}
 const chosen = asked
-  ? (asked.includes("=")
-      ? asked.split("=")[1]
-      : process.argv[process.argv.indexOf(asked) + 1]
-    ).split(",")
+  ? askedValue.split(",")
   : process.platform === "win32"
     ? ["ps1"]
     : ["py", "sh"];
@@ -184,7 +191,12 @@ for (const runner of chosen)
         },
       );
     } finally {
+      /* Waited for, not just signalled. The next posture spawns a stub on the same port
+         immediately; if the outgoing one still holds it the replacement dies unseen under
+         stdio "ignore", and the run talks to the previous posture's key. Two adjacent postures
+         both expect exit 1, so that lands green while testing the wrong thing. */
       stub.kill();
+      await once(stub, "exit");
     }
 
     const output = `${run.stdout || ""}${run.stderr || ""}`;

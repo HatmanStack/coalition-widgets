@@ -48,10 +48,15 @@ if (-not $LookerHost -or -not $LookId) {
 # https only, except a loopback address, which is where the mock runs for rehearsal. Parsed
 # rather than matched with a wildcard: http://localhost* also matches
 # http://localhost.attacker.example, and the key would have gone there in clear.
+# A host with no scheme means https, as in acceptance.py. Without this a relative [uri] is
+# built, and reading .Scheme on one throws - which under ErrorActionPreference Stop ends the
+# script with exit 1, read as FAIL, rather than the 3 that means "could not run".
+if ($LookerHost -notmatch "://") { $LookerHost = "https://$LookerHost" }
 $parsed = $null
 try { $parsed = [uri]$LookerHost } catch { $parsed = $null }
+# DnsSafeHost, not Host: an IPv6 literal comes back from Host with its brackets, as [::1].
 $loopback = @("localhost", "127.0.0.1", "::1")
-if (-not $parsed -or -not ($parsed.Scheme -eq "https" -or ($parsed.Scheme -eq "http" -and $loopback -contains $parsed.Host))) {
+if (-not $parsed -or -not $parsed.IsAbsoluteUri -or -not ($parsed.Scheme -eq "https" -or ($parsed.Scheme -eq "http" -and $loopback -contains $parsed.DnsSafeHost))) {
   Write-Output "refusing $LookerHost : the key would cross the network in clear"
   exit 3
 }
@@ -167,7 +172,8 @@ try {
   elseif ($code -eq "200") { Write-Line "run_look" "??" "200 with an error object: the Look did not run" }
   else { Write-Line "run_look" "??" "$code`: the key cannot run Look $LookId" }
 
-  if (-not $query -or -not $query.model -or -not $query.view) {
+  # fields too, like acceptance.py: without it this sent "fields":[null] and probed nothing.
+  if (-not $query -or -not $query.model -or -not $query.view -or -not $query.fields) {
     Write-Line "own query" "??" "could not read the Look's query to build the probe"
     Write-Line "SQL Runner" "??" "no model to probe with"
   } else {

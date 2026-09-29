@@ -490,12 +490,26 @@ export const ACCESS = {
 const PUBLIC_FOLDER = "41";
 const OTHER_FOLDER = "7";
 
+// The one model this mock answers for, and the explores in it, taken from the rows themselves.
+const MODEL = "clarity";
+const VIEWS = new Set(
+  Object.values(VALID).map((rows) => Object.keys(rows()[0])[0].split(".")[0]),
+);
+
+const parseBody = (body) => {
+  try {
+    return JSON.parse(body || "{}");
+  } catch {
+    return {};
+  }
+};
+
 const lookMeta = (id) => {
   const fields = Object.keys(VALID[LOOKS[id]]()[0]);
   return {
     id,
     folder_id: PUBLIC_FOLDER,
-    query: { model: "clarity", view: fields[0].split(".")[0], fields },
+    query: { model: MODEL, view: fields[0].split(".")[0], fields },
   };
 };
 
@@ -510,7 +524,7 @@ const refused = (key, what) => {
 
 /* The endpoints only the acceptance test calls. Returns undefined for anything else, so the
    publisher's two routes below stay exactly as they were. */
-function probe({ method, path, query }, access) {
+function probe({ method, path, query, body }, access) {
   const key = ACCESS[access];
 
   if (method === "GET" && path === "/api/4.0/user") {
@@ -563,7 +577,18 @@ function probe({ method, path, query }, access) {
     };
   }
 
+  /* The body is read, not just the permission. A caller that names a model or explore this
+     instance does not have gets Looker's answer for that, which is not a refusal — and a test
+     whose probe is malformed would otherwise pass every posture while probing nothing. One copy
+     of the acceptance test was sending "model":"model" for exactly this reason. */
   if (method === "POST" && path === "/api/4.0/queries/run/json") {
+    const asked = parseBody(body);
+    if (asked.model !== MODEL || !VIEWS.has(asked.view))
+      return {
+        status: 422,
+        body: { message: "Model or explore not found" },
+        log: `inline query -> 422 unknown model/view [${access}]`,
+      };
     return key.explore
       ? {
           status: 200,
@@ -574,6 +599,12 @@ function probe({ method, path, query }, access) {
   }
 
   if (method === "POST" && path === "/api/4.0/sql_queries") {
+    if (parseBody(body).model_name !== MODEL)
+      return {
+        status: 422,
+        body: { message: "Model not found" },
+        log: `sql_queries -> 422 unknown model [${access}]`,
+      };
     return key.sqlRunner
       ? {
           status: 200,
@@ -605,7 +636,7 @@ export function respond(
 ) {
   const auth = headers.authorization || headers.Authorization || "";
 
-  const probed = probe({ method, path, query }, access);
+  const probed = probe({ method, path, query, body }, access);
   if (probed) {
     return auth === `token ${TOKEN}`
       ? probed
