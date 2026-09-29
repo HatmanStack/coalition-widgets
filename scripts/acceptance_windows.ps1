@@ -1,4 +1,4 @@
-# Does this Looker API key do only what it was issued to do?
+﻿# Does this Looker API key do only what it was issued to do?
 #
 # The same test as scripts/acceptance.py, for a machine with no Python. curl.exe and PowerShell
 # only, both of which Windows 10 (1803 and later) and Windows 11 have out of the box.
@@ -23,6 +23,11 @@
 # The arguments are parsed by hand rather than with param(), so that --host and --look are typed
 # the same way here as in the other two. PowerShell reserves $Host, so a -Host parameter is not
 # available to bind anyway.
+
+# Written as ASCII with a byte order mark. Windows PowerShell 5.1 reads a .ps1 as ANSI unless it
+# has one, so a UTF-8 em dash arrives as three CP1252 characters, the last of which is a curly
+# quote that PowerShell treats as a string delimiter. The file then fails to parse - which is how
+# this was found, on the Windows CI job, after it passed review twice.
 
 $ErrorActionPreference = "Stop"
 
@@ -180,7 +185,7 @@ Write-Output ""
 if ($failed) {
   Write-Output "FAIL  Do not store this key. It can do more than it was issued for."
   Write-Output "      Ran when it should have been refused: $($ran -join ', ')."
-  Write-Output "      For Bitfocus: the role should carry access_data and see_looks only —"
+  Write-Output "      For Bitfocus: the role should carry access_data and see_looks only -"
   Write-Output "      no explore, no use_sql_runner, no group inheritance."
   exit 1
 }
