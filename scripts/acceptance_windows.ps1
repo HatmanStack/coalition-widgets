@@ -91,6 +91,18 @@ function Read-Json($path) {
 # hands back. Windows PowerShell 5.1 returns an array whole; PowerShell 7 enumerates it, so a
 # one-row response arrives as a single object and "did it return rows" would answer no on any
 # machine with pwsh. The text says what the server sent, in every version.
+# A JSON array's items, flat, in both versions. Windows PowerShell 5.1 hands back an array as
+# one object, so @(ConvertFrom-Json) there is an array holding an array: .Count is 1 whatever
+# the server sent, and the single item has none of the properties being read. foreach iterates
+# either shape. This printed a note about a folder called "" and would have counted every
+# multi-row Look as one row.
+function Read-JsonArray($path) {
+  $parsed = Read-Json $path
+  if ($null -eq $parsed) { return @() }
+  $items = foreach ($item in $parsed) { $item }
+  return @($items)
+}
+
 function Test-JsonArray($path) {
   $raw = ""
   if (Test-Path $path) { $raw = Get-Content $path -Raw }
@@ -145,7 +157,7 @@ try {
   }
 
   function Get-Rows($path) {
-    $n = @(Read-Json $path).Count
+    $n = @(Read-JsonArray $path).Count
     if ($n -eq 1) { "1 row" } else { "$n rows" }
   }
 
@@ -206,7 +218,7 @@ try {
     # The same sentences as acceptance.py, word for word. Whoever runs this is told to send back
     # any note line, so two copies phrasing the same finding differently is a question nobody
     # should have to answer twice.
-    $looks = @(Read-Json (Join-Path $tmp "looks.json"))
+    $looks = @(Read-JsonArray (Join-Path $tmp "looks.json"))
     if (-not $folder) {
       $distinct = @($looks | Group-Object folder_id).Count
       Write-Output "  note  $($looks.Count) Looks visible across $distinct folder(s)"
