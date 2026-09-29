@@ -188,8 +188,18 @@ fi
 
 code=$(api GET "/looks?fields=id,folder_id" looks.json)
 if [ "$code" = "200" ]; then
-  elsewhere=$(grep -o '"folder_id":"[^"]*"' "$TMP/looks.json" | cut -d'"' -f4 | grep -vx "${FOLDER:-}" | sort | uniq -c)
-  [ -n "$elsewhere" ] && echo "  note  Looks visible outside folder ${FOLDER:-unknown}: $(echo "$elsewhere" | awk '{printf "folder %s: %s  ", $2, $1}')"
+  # The same sentences as acceptance.py, word for word. Whoever runs this is told to send back
+  # any note line, so two copies phrasing the same finding differently is a question nobody
+  # should have to answer twice.
+  all_folders=$(grep -o '"folder_id":"[^"]*"' "$TMP/looks.json" | cut -d'"' -f4)
+  count=$(echo "$all_folders" | grep -c .)
+  if [ -z "$FOLDER" ]; then
+    distinct=$(echo "$all_folders" | sort -u | grep -c .)
+    echo "  note  $count Looks visible across $distinct folder(s)"
+  else
+    where=$(echo "$all_folders" | grep -vx "$FOLDER" | sort | uniq -c | awk '{printf "%sfolder %s: %s", (NR>1 ? ", " : ""), $2, $1}')
+    [ -n "$where" ] && echo "  note  Looks visible outside folder $FOLDER ($where)"
+  fi
 else
   echo "  note  could not list visible Looks ($code)"
 fi

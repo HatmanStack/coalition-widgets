@@ -137,6 +137,11 @@ await new Promise((resolve, reject) => {
 
 const width = Math.max(...Object.keys(ACCESS).map((n) => n.length));
 let failures = 0;
+// Not just the verdict: the whole printed page, compared between the runners this platform can
+// run together. Whoever runs the test is told to send back any "note" line, so two copies
+// wording the same finding differently is a question nobody should have to answer twice - which
+// is what happened when bash said "outside folder unknown" and Python said "across 1 folder(s)".
+const printed = {};
 
 for (const runner of chosen)
   for (const [name, posture] of Object.entries(ACCESS)) {
@@ -191,6 +196,8 @@ for (const runner of chosen)
     if (output.includes(SECRET) || output.includes(CLIENT_ID))
       problems.push("printed the key");
     if (output.includes(FIGURE)) problems.push("printed a figure");
+    printed[name] ??= {};
+    printed[name][runner] = output;
     const left = readdirSync(scratch);
     if (left.length)
       problems.push(`left ${left.length} file(s) behind in TEMP`);
@@ -211,6 +218,26 @@ for (const runner of chosen)
           .join("\n") || "          | (no output)",
       );
   }
+
+for (const [name, byRunner] of Object.entries(printed)) {
+  const [first, ...rest] = Object.entries(byRunner);
+  for (const [runner, output] of rest)
+    if (output !== first[1]) {
+      failures++;
+      console.log(
+        `  FAIL  ${runner} and ${first[0]} printed different pages for ${name}`,
+      );
+      const a = first[1].split("\n");
+      const b = output.split("\n");
+      for (let i = 0; i < Math.max(a.length, b.length); i++)
+        if (a[i] !== b[i]) {
+          console.log(`          ${first[0]} | ${a[i] ?? "(nothing)"}`);
+          console.log(
+            `          ${runner.padEnd(first[0].length)} | ${b[i] ?? "(nothing)"}`,
+          );
+        }
+    }
+}
 
 const total = chosen.length * Object.keys(ACCESS).length;
 console.log(

@@ -197,11 +197,19 @@ try {
 
   $code = Invoke-Api GET "/looks`?fields=id,folder_id" "looks.json"
   if ($code -eq "200") {
+    # The same sentences as acceptance.py, word for word. Whoever runs this is told to send back
+    # any note line, so two copies phrasing the same finding differently is a question nobody
+    # should have to answer twice.
     $looks = @(Read-Json (Join-Path $tmp "looks.json"))
-    $elsewhere = $looks | Where-Object { "$($_.folder_id)" -ne "$folder" } | Group-Object folder_id
-    if ($elsewhere) {
-      $where = ($elsewhere | ForEach-Object { "folder $($_.Name): $($_.Count)" }) -join ", "
-      Write-Output "  note  Looks visible outside folder $folder ($where)"
+    if (-not $folder) {
+      $distinct = @($looks | Group-Object folder_id).Count
+      Write-Output "  note  $($looks.Count) Looks visible across $distinct folder(s)"
+    } else {
+      $elsewhere = $looks | Where-Object { "$($_.folder_id)" -ne "$folder" } | Group-Object folder_id
+      if ($elsewhere) {
+        $where = ($elsewhere | ForEach-Object { "folder $($_.Name): $($_.Count)" }) -join ", "
+        Write-Output "  note  Looks visible outside folder $folder ($where)"
+      }
     }
   } else {
     Write-Output "  note  could not list visible Looks ($code)"
