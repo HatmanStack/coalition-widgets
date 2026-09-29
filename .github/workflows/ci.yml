@@ -106,3 +106,19 @@ jobs:
         run: node scripts/check-acceptance.mjs
       - name: Identifier scan and as-of checks
         run: python3 scripts/check-identifiers.py
+
+  acceptance-windows:
+    name: The acceptance test on Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+      - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6
+        with:
+          node-version: "22"
+      # The Windows copy of the acceptance test cannot be run on the machine it was written on,
+      # and the partner running it will have no Python. Windows PowerShell 5.1 is what a stock
+      # laptop has, so it is what this runs: same postures, same expected verdicts as the other
+      # two, and it fails if the three ever disagree.
+      - name: PowerShell against every key posture
+        shell: powershell
+        run: node scripts/check-acceptance.mjs --runner ps1
