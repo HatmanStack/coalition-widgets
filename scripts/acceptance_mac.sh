@@ -223,7 +223,7 @@ echo
 if [ "$FAILED" = "1" ]; then
   echo "FAIL  Do not store this key. It can do more than it was issued for."
   echo "      Ran when it should have been refused:${RAN%,}."
-  echo "      For Bitfocus: the role should carry access_data and see_looks only —"
+  echo "      For Bitfocus: the role should carry access_data and see_looks only -"
   echo "      no explore, no use_sql_runner, no group inheritance."
   exit 1
 fi
