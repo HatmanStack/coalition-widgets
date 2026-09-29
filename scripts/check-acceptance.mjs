@@ -34,7 +34,11 @@ const ROOT = fileURLToPath(new URL("..", import.meta.url)).replace(
 const PORT = 8242;
 /* Same flags in all three, so the command a partner is given differs only in what launches it. */
 const RUNNERS = {
-  py: { cmd: "python3", args: ["scripts/acceptance.py"] },
+  // python3 everywhere but Windows, where the launcher is python.
+  py: {
+    cmd: process.platform === "win32" ? "python" : "python3",
+    args: ["scripts/acceptance.py"],
+  },
   sh: { cmd: "bash", args: ["scripts/acceptance_mac.sh"] },
   ps1: {
     cmd: "powershell",
@@ -59,9 +63,11 @@ const RUNNERS = {
   },
 };
 const asked = process.argv.find((a) => a.startsWith("--runner"));
-const askedValue = asked?.includes("=")
-  ? asked.split("=")[1]
-  : process.argv[process.argv.indexOf(asked) + 1];
+const askedValue = !asked
+  ? undefined
+  : asked.includes("=")
+    ? asked.split("=")[1]
+    : process.argv[process.argv.indexOf(asked) + 1];
 if (asked && !askedValue) {
   console.error(
     `--runner needs a value. Known: ${Object.keys(RUNNERS).join(", ")}`,
@@ -195,8 +201,13 @@ for (const runner of chosen)
          immediately; if the outgoing one still holds it the replacement dies unseen under
          stdio "ignore", and the run talks to the previous posture's key. Two adjacent postures
          both expect exit 1, so that lands green while testing the wrong thing. */
-      stub.kill();
-      await once(stub, "exit");
+      // Only if it is still running. A stub that died on its own - a busy port, a crash - has
+      // already fired exit, and waiting for a second one never returns.
+      if (stub.exitCode === null && stub.signalCode === null) {
+        const ended = once(stub, "exit");
+        stub.kill();
+        await ended;
+      }
     }
 
     const output = `${run.stdout || ""}${run.stderr || ""}`;

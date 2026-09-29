@@ -211,7 +211,9 @@ try {
       $distinct = @($looks | Group-Object folder_id).Count
       Write-Output "  note  $($looks.Count) Looks visible across $distinct folder(s)"
     } else {
-      $elsewhere = $looks | Where-Object { "$($_.folder_id)" -ne "$folder" } | Group-Object folder_id
+      # Sorted by name, like Python's sorted(): Group-Object alone keeps the order the API
+      # happened to return, so with two other folders the note came out differently here.
+      $elsewhere = $looks | Where-Object { "$($_.folder_id)" -ne "$folder" } | Group-Object folder_id | Sort-Object Name
       if ($elsewhere) {
         $where = ($elsewhere | ForEach-Object { "folder $($_.Name): $($_.Count)" }) -join ", "
         Write-Output "  note  Looks visible outside folder $folder ($where)"

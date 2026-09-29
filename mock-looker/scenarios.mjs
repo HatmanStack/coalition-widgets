@@ -489,6 +489,7 @@ export const ACCESS = {
 // Invented. One public folder holding every Look, and one an inherited group would add.
 const PUBLIC_FOLDER = "41";
 const OTHER_FOLDER = "7";
+const SECOND_FOLDER = "12";
 
 // The one model this mock answers for, and the explores in it, taken from the rows themselves.
 const MODEL = "clarity";
@@ -550,10 +551,13 @@ function probe({ method, path, query, body }, access) {
       id,
       folder_id: PUBLIC_FOLDER,
     }));
+    // Two other folders, in an order no copy should keep: the note sorts them, and with only
+    // one of them a copy that did not sort looked identical to one that did.
     if (key.inherited)
       looks.push(
         { id: "77", folder_id: OTHER_FOLDER },
-        { id: "78", folder_id: OTHER_FOLDER },
+        { id: "78", folder_id: SECOND_FOLDER },
+        { id: "79", folder_id: OTHER_FOLDER },
       );
     return {
       status: 200,

@@ -201,10 +201,12 @@ if [ "$code" = "200" ]; then
   all_folders=$(grep -o '"folder_id":"[^"]*"' "$TMP/looks.json" | cut -d'"' -f4)
   count=$(echo "$all_folders" | grep -c .)
   if [ -z "$FOLDER" ]; then
-    distinct=$(echo "$all_folders" | sort -u | grep -c .)
+    distinct=$(echo "$all_folders" | LC_ALL=C sort -u | grep -c .)
     echo "  note  $count Looks visible across $distinct folder(s)"
   else
-    where=$(echo "$all_folders" | grep -vx "$FOLDER" | sort | uniq -c | awk '{printf "%sfolder %s: %s", (NR>1 ? ", " : ""), $2, $1}')
+    # LC_ALL=C so the order is by byte, which is what Python's sorted() gives. A different
+    # locale would order two folders differently and the copies would print different notes.
+    where=$(echo "$all_folders" | grep -vx "$FOLDER" | LC_ALL=C sort | uniq -c | awk '{printf "%sfolder %s: %s", (NR>1 ? ", " : ""), $2, $1}')
     [ -n "$where" ] && echo "  note  Looks visible outside folder $FOLDER ($where)"
   fi
 else
