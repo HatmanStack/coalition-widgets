@@ -18,6 +18,7 @@
  */
 
 import { spawn, spawnSync } from "node:child_process";
+import { once } from "node:events";
 import { readFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { mkdtempSync, readdirSync, rmSync } from "node:fs";
@@ -33,7 +34,11 @@ const ROOT = fileURLToPath(new URL("..", import.meta.url)).replace(
 const PORT = 8242;
 /* Same flags in all three, so the command a partner is given differs only in what launches it. */
 const RUNNERS = {
-  py: { cmd: "python3", args: ["scripts/acceptance.py"] },
+  // python3 everywhere but Windows, where the launcher is python.
+  py: {
+    cmd: process.platform === "win32" ? "python" : "python3",
+    args: ["scripts/acceptance.py"],
+  },
   sh: { cmd: "bash", args: ["scripts/acceptance_mac.sh"] },
   ps1: {
     cmd: "powershell",
@@ -58,11 +63,19 @@ const RUNNERS = {
   },
 };
 const asked = process.argv.find((a) => a.startsWith("--runner"));
+const askedValue = !asked
+  ? undefined
+  : asked.includes("=")
+    ? asked.split("=")[1]
+    : process.argv[process.argv.indexOf(asked) + 1];
+if (asked && !askedValue) {
+  console.error(
+    `--runner needs a value. Known: ${Object.keys(RUNNERS).join(", ")}`,
+  );
+  process.exit(1);
+}
 const chosen = asked
-  ? (asked.includes("=")
-      ? asked.split("=")[1]
-      : process.argv[process.argv.indexOf(asked) + 1]
-    ).split(",")
+  ? askedValue.split(",")
   : process.platform === "win32"
     ? ["ps1"]
     : ["py", "sh"];
@@ -74,6 +87,10 @@ for (const r of chosen)
     process.exit(1);
   }
 const EXIT = { PASS: 0, FAIL: 1, INCONCLUSIVE: 2 };
+/* Two Looks, because row counting is where the copies diverge quietly: 1001 returns one row and
+   1002 returns four. With only the one-row Look, a copy that counted every response as one row
+   printed the same page as one that counted properly. */
+const LOOKS = ["1001", "1002"];
 const CLIENT_ID = "rehearsal-client-id";
 const SECRET = "rehearsal-secret-must-not-print";
 // Served by the mock on both run_look and the open key's inline query. A value, not a count.
@@ -137,85 +154,127 @@ await new Promise((resolve, reject) => {
 
 const width = Math.max(...Object.keys(ACCESS).map((n) => n.length));
 let failures = 0;
+// Not just the verdict: the whole printed page, compared between the runners this platform can
+// run together. Whoever runs the test is told to send back any "note" line, so two copies
+// wording the same finding differently is a question nobody should have to answer twice - which
+// is what happened when bash said "outside folder unknown" and Python said "across 1 folder(s)".
+const printed = {};
 
 for (const runner of chosen)
-  for (const [name, posture] of Object.entries(ACCESS)) {
-    const stub = spawn(
-      "node",
-      [`${ROOT}/scripts/looker-stub.mjs`, `--access=${name}`, `--port=${PORT}`],
-      { cwd: ROOT, stdio: "ignore" },
-    );
-    await new Promise((r) => setTimeout(r, 600));
+  for (const look of LOOKS)
+    for (const [name, posture] of Object.entries(ACCESS)) {
+      const stub = spawn(
+        "node",
+        [
+          `${ROOT}/scripts/looker-stub.mjs`,
+          `--access=${name}`,
+          `--port=${PORT}`,
+        ],
+        { cwd: ROOT, stdio: "ignore" },
+      );
+      await new Promise((r) => setTimeout(r, 600));
 
-    /* A TEMP of its own, so "the bodies are deleted on the way out" is checked rather than
+      /* A TEMP of its own, so "the bodies are deleted on the way out" is checked rather than
        claimed. All three read it: mktemp -d and Python's tempfile take TMPDIR, PowerShell takes
        TEMP. Every run holds a login token there, and a key that should have been refused holds
        rows too. */
-    const scratch = mkdtempSync(join(tmpdir(), "acceptance-"));
-    let run;
-    try {
-      run = spawnSync(
-        RUNNERS[runner].cmd,
-        [
-          ...RUNNERS[runner].args.map((a) =>
-            a.startsWith("scripts/") ? `${ROOT}/${a}` : a,
-          ),
-          "--host",
-          `http://localhost:${PORT}`,
-          "--look",
-          "1001",
-        ],
-        {
-          cwd: ROOT,
-          encoding: "utf-8",
-          env: {
-            ...process.env,
-            TMPDIR: scratch,
-            TEMP: scratch,
-            TMP: scratch,
-            LOOKER_CLIENT_ID: CLIENT_ID,
-            LOOKER_CLIENT_SECRET: SECRET,
+      const scratch = mkdtempSync(join(tmpdir(), "acceptance-"));
+      let run;
+      try {
+        run = spawnSync(
+          RUNNERS[runner].cmd,
+          [
+            ...RUNNERS[runner].args.map((a) =>
+              a.startsWith("scripts/") ? `${ROOT}/${a}` : a,
+            ),
+            "--host",
+            `http://localhost:${PORT}`,
+            "--look",
+            look,
+          ],
+          {
+            cwd: ROOT,
+            encoding: "utf-8",
+            env: {
+              ...process.env,
+              TMPDIR: scratch,
+              TEMP: scratch,
+              TMP: scratch,
+              LOOKER_CLIENT_ID: CLIENT_ID,
+              LOOKER_CLIENT_SECRET: SECRET,
+            },
           },
-        },
+        );
+      } finally {
+        /* Waited for, not just signalled. The next posture spawns a stub on the same port
+         immediately; if the outgoing one still holds it the replacement dies unseen under
+         stdio "ignore", and the run talks to the previous posture's key. Two adjacent postures
+         both expect exit 1, so that lands green while testing the wrong thing. */
+        // Only if it is still running. A stub that died on its own - a busy port, a crash - has
+        // already fired exit, and waiting for a second one never returns.
+        if (stub.exitCode === null && stub.signalCode === null) {
+          const ended = once(stub, "exit");
+          stub.kill();
+          await ended;
+        }
+      }
+
+      const output = `${run.stdout || ""}${run.stderr || ""}`;
+      const problems = [];
+      if (run.status !== EXIT[posture.expect])
+        problems.push(
+          `exit ${run.status}, expected ${EXIT[posture.expect]} (${posture.expect})`,
+        );
+      if (output.includes(SECRET) || output.includes(CLIENT_ID))
+        problems.push("printed the key");
+      if (output.includes(FIGURE)) problems.push("printed a figure");
+      printed[`${name} look ${look}`] ??= {};
+      printed[`${name} look ${look}`][runner] = output;
+      const left = readdirSync(scratch);
+      if (left.length)
+        problems.push(`left ${left.length} file(s) behind in TEMP`);
+      rmSync(scratch, { recursive: true, force: true });
+
+      if (problems.length) failures++;
+      console.log(
+        `  ${problems.length ? "FAIL" : "ok  "}  ${runner.padEnd(4)}  ${name.padEnd(width)}  look ${look}  ${problems.join("; ") || posture.expect}`,
       );
-    } finally {
-      stub.kill();
+      // What it actually printed, when it did not do what it should. A guard that reports a
+      // failure without the evidence for it sends whoever reads it back to reproduce by hand.
+      if (problems.length)
+        console.log(
+          output
+            .trimEnd()
+            .split("\n")
+            .map((l) => `          | ${l}`)
+            .join("\n") || "          | (no output)",
+        );
     }
 
-    const output = `${run.stdout || ""}${run.stderr || ""}`;
-    const problems = [];
-    if (run.status !== EXIT[posture.expect])
-      problems.push(
-        `exit ${run.status}, expected ${EXIT[posture.expect]} (${posture.expect})`,
-      );
-    if (output.includes(SECRET) || output.includes(CLIENT_ID))
-      problems.push("printed the key");
-    if (output.includes(FIGURE)) problems.push("printed a figure");
-    const left = readdirSync(scratch);
-    if (left.length)
-      problems.push(`left ${left.length} file(s) behind in TEMP`);
-    rmSync(scratch, { recursive: true, force: true });
-
-    if (problems.length) failures++;
-    console.log(
-      `  ${problems.length ? "FAIL" : "ok  "}  ${runner.padEnd(3)}  ${name.padEnd(width)}  ${problems.join("; ") || posture.expect}`,
-    );
-    // What it actually printed, when it did not do what it should. A guard that reports a
-    // failure without the evidence for it sends whoever reads it back to reproduce by hand.
-    if (problems.length)
+for (const [name, byRunner] of Object.entries(printed)) {
+  const [first, ...rest] = Object.entries(byRunner);
+  for (const [runner, output] of rest)
+    if (output !== first[1]) {
+      failures++;
       console.log(
-        output
-          .trimEnd()
-          .split("\n")
-          .map((l) => `          | ${l}`)
-          .join("\n") || "          | (no output)",
+        `  FAIL  ${runner} and ${first[0]} printed different pages for ${name}`,
       );
-  }
+      const a = first[1].split("\n");
+      const b = output.split("\n");
+      for (let i = 0; i < Math.max(a.length, b.length); i++)
+        if (a[i] !== b[i]) {
+          console.log(`          ${first[0]} | ${a[i] ?? "(nothing)"}`);
+          console.log(
+            `          ${runner.padEnd(first[0].length)} | ${b[i] ?? "(nothing)"}`,
+          );
+        }
+    }
+}
 
-const total = chosen.length * Object.keys(ACCESS).length;
+const total = chosen.length * LOOKS.length * Object.keys(ACCESS).length;
 console.log(
   failures === 0
-    ? `\n  ${total} runs (${chosen.join(", ")} x ${Object.keys(ACCESS).length} postures), all as expected`
+    ? `\n  ${total} runs (${chosen.join(", ")} x ${Object.keys(ACCESS).length} postures x ${LOOKS.length} Looks), all as expected`
     : `\n  ${failures} of ${total} did not behave as expected`,
 );
 process.exit(failures === 0 ? 0 : 1);

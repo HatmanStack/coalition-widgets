@@ -288,7 +288,7 @@ def run(base, token, args, client_id, client_secret):
         print("FAIL  Do not store this key. It can do more than it was issued for.")
         print(f"      Ran when it should have been refused: {', '.join(ran)}.")
         print(
-            "      For Bitfocus: the role should carry access_data and see_looks only —"
+            "      For Bitfocus: the role should carry access_data and see_looks only -"
         )
         print("      no explore, no use_sql_runner, no group inheritance.")
         return FAIL

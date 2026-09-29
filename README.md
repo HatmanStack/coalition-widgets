@@ -84,6 +84,25 @@ python3 acceptance.py --host https://x.cloud.looker.com --look 123 --secret <Loo
 runs should be exactly what was reviewed. The deploy prints this line with it filled in, and
 `git log -1 --format=%H -- scripts/acceptance.py` gives it too.
 
+Three copies of it, because the machine holding the key is whichever one the partner has.
+Windows ships no Python at all, and on a current Mac `python3` is a stub that starts an Xcode
+install. Same flags, same output, same exit codes — 0 PASS, 1 FAIL, 2 INCONCLUSIVE, 3 could not
+run — and `scripts/check-acceptance.mjs` runs every copy a platform can against every key
+posture the mock can take, comparing the whole printed page rather than only the verdict.
+
+| Where                               | Run it with                                                                        |
+| ----------------------------------- | ---------------------------------------------------------------------------------- |
+| CloudShell, or anything with Python | `python3 acceptance.py --host … --look …`                                            |
+| A Mac, nothing installed            | `bash acceptance_mac.sh --host … --look …`                                           |
+| Windows, nothing installed          | `powershell -ExecutionPolicy Bypass -File acceptance_windows.ps1 --host … --look …`  |
+
+Only `acceptance.py` can store the key, because `--secret` needs boto3; that step belongs in
+CloudShell. The shell copies test and report, nothing else.
+
+Run it twice: with a Look in the public folder, which must end PASS, and with a Look in a private
+folder, which must end INCONCLUSIVE. A PASS on the second means the key reaches content it was
+never issued for.
+
 There are three schedules, each passing its own cadence. `annual` has none and runs by hand.
 
 | Cadence   | Parameter           | Default           | Writes                   |

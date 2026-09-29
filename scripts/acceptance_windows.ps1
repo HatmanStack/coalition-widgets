@@ -48,10 +48,15 @@ if (-not $LookerHost -or -not $LookId) {
 # https only, except a loopback address, which is where the mock runs for rehearsal. Parsed
 # rather than matched with a wildcard: http://localhost* also matches
 # http://localhost.attacker.example, and the key would have gone there in clear.
+# A host with no scheme means https, as in acceptance.py. Without this a relative [uri] is
+# built, and reading .Scheme on one throws - which under ErrorActionPreference Stop ends the
+# script with exit 1, read as FAIL, rather than the 3 that means "could not run".
+if ($LookerHost -notmatch "://") { $LookerHost = "https://$LookerHost" }
 $parsed = $null
 try { $parsed = [uri]$LookerHost } catch { $parsed = $null }
+# DnsSafeHost, not Host: an IPv6 literal comes back from Host with its brackets, as [::1].
 $loopback = @("localhost", "127.0.0.1", "::1")
-if (-not $parsed -or -not ($parsed.Scheme -eq "https" -or ($parsed.Scheme -eq "http" -and $loopback -contains $parsed.Host))) {
+if (-not $parsed -or -not $parsed.IsAbsoluteUri -or -not ($parsed.Scheme -eq "https" -or ($parsed.Scheme -eq "http" -and $loopback -contains $parsed.DnsSafeHost))) {
   Write-Output "refusing $LookerHost : the key would cross the network in clear"
   exit 3
 }
@@ -86,6 +91,18 @@ function Read-Json($path) {
 # hands back. Windows PowerShell 5.1 returns an array whole; PowerShell 7 enumerates it, so a
 # one-row response arrives as a single object and "did it return rows" would answer no on any
 # machine with pwsh. The text says what the server sent, in every version.
+# A JSON array's items, flat, in both versions. Windows PowerShell 5.1 hands back an array as
+# one object, so @(ConvertFrom-Json) there is an array holding an array: .Count is 1 whatever
+# the server sent, and the single item has none of the properties being read. foreach iterates
+# either shape. This printed a note about a folder called "" and would have counted every
+# multi-row Look as one row.
+function Read-JsonArray($path) {
+  $parsed = Read-Json $path
+  if ($null -eq $parsed) { return @() }
+  $items = foreach ($item in $parsed) { $item }
+  return @($items)
+}
+
 function Test-JsonArray($path) {
   $raw = ""
   if (Test-Path $path) { $raw = Get-Content $path -Raw }
@@ -140,7 +157,7 @@ try {
   }
 
   function Get-Rows($path) {
-    $n = @(Read-Json $path).Count
+    $n = @(Read-JsonArray $path).Count
     if ($n -eq 1) { "1 row" } else { "$n rows" }
   }
 
@@ -167,7 +184,8 @@ try {
   elseif ($code -eq "200") { Write-Line "run_look" "??" "200 with an error object: the Look did not run" }
   else { Write-Line "run_look" "??" "$code`: the key cannot run Look $LookId" }
 
-  if (-not $query -or -not $query.model -or -not $query.view) {
+  # fields too, like acceptance.py: without it this sent "fields":[null] and probed nothing.
+  if (-not $query -or -not $query.model -or -not $query.view -or -not $query.fields) {
     Write-Line "own query" "??" "could not read the Look's query to build the probe"
     Write-Line "SQL Runner" "??" "no model to probe with"
   } else {
@@ -197,11 +215,21 @@ try {
 
   $code = Invoke-Api GET "/looks`?fields=id,folder_id" "looks.json"
   if ($code -eq "200") {
-    $looks = @(Read-Json (Join-Path $tmp "looks.json"))
-    $elsewhere = $looks | Where-Object { "$($_.folder_id)" -ne "$folder" } | Group-Object folder_id
-    if ($elsewhere) {
-      $where = ($elsewhere | ForEach-Object { "folder $($_.Name): $($_.Count)" }) -join ", "
-      Write-Output "  note  Looks visible outside folder $folder ($where)"
+    # The same sentences as acceptance.py, word for word. Whoever runs this is told to send back
+    # any note line, so two copies phrasing the same finding differently is a question nobody
+    # should have to answer twice.
+    $looks = @(Read-JsonArray (Join-Path $tmp "looks.json"))
+    if (-not $folder) {
+      $distinct = @($looks | Group-Object folder_id).Count
+      Write-Output "  note  $($looks.Count) Looks visible across $distinct folder(s)"
+    } else {
+      # Sorted by name, like Python's sorted(): Group-Object alone keeps the order the API
+      # happened to return, so with two other folders the note came out differently here.
+      $elsewhere = $looks | Where-Object { "$($_.folder_id)" -ne "$folder" } | Group-Object folder_id | Sort-Object Name
+      if ($elsewhere) {
+        $where = ($elsewhere | ForEach-Object { "folder $($_.Name): $($_.Count)" }) -join ", "
+        Write-Output "  note  Looks visible outside folder $folder ($where)"
+      }
     }
   } else {
     Write-Output "  note  could not list visible Looks ($code)"
