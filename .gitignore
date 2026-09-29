@@ -11,3 +11,7 @@ __pycache__/
 
 # local smoke test page, carries a build-specific integrity digest
 smoke.html
+
+# drafts of messages to the partner, kept beside the commands they quote so the two cannot
+# drift, but they are correspondence and not part of the project
+*-scope-test.txt
