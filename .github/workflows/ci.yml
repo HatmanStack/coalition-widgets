@@ -119,6 +119,12 @@ jobs:
       # and the partner running it will have no Python. Windows PowerShell 5.1 is what a stock
       # laptop has, so it is what this runs: same postures, same expected verdicts as the other
       # two, and it fails if the three ever disagree.
-      - name: PowerShell against every key posture
+      - name: Windows PowerShell 5.1 against every key posture
         shell: powershell
         run: node scripts/check-acceptance.mjs --runner ps1
+      # PowerShell 7 is on plenty of Windows machines and differs from 5.1 where this script
+      # touches it: ConvertFrom-Json enumerates an array there, so a one-row Look read as "no
+      # rows" until the check stopped asking the parsed object what shape it was.
+      - name: PowerShell 7 against every key posture
+        shell: pwsh
+        run: node scripts/check-acceptance.mjs --runner pwsh

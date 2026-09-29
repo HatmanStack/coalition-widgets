@@ -50,22 +50,38 @@ SEC="${LOOKER_CLIENT_SECRET:-}"
 [ -n "$CID" ] || read -r -p "Client ID: " CID
 [ -n "$SEC" ] || { read -r -s -p "Client secret: " SEC; echo; }
 
+# 0700, and everything sensitive lives in here rather than on a command line: /proc/<pid>/cmdline
+# is readable by anyone on the machine, and endpoint software commonly logs what it sees there.
+# curl reads the credentials out of files and the token out of a config file.
 TMP=$(mktemp -d)
-trap 'rm -rf "$TMP"' EXIT
+# Not silent: a verdict of PASS while the token is still on disk would be a false one.
+cleanup() {
+  rm -rf "$TMP"
+  if [ -d "$TMP" ]; then
+    echo
+    echo "COULD NOT CLEAN UP  $TMP still holds the login token. Delete it yourself."
+    exit 3
+  fi
+}
+trap cleanup EXIT
 
 # No -L anywhere: curl does not follow redirects unless asked, and the token must not be carried
 # to a host nobody configured.
 api() { # method path outfile [extra curl args...]
   local method="$1" path="$2" out="$3"; shift 3
   curl -s -S -m 30 -o "$TMP/$out" -w "%{http_code}" -X "$method" \
-    -H "Authorization: token $TOKEN" "$HOST/api/4.0$path" "$@" 2>/dev/null
+    -K "$TMP/curlrc" "$HOST/api/4.0$path" "$@" 2>/dev/null
 }
 
 printf '\nLooker acceptance test   %s   Look %s\n\n' "$HOST" "$LOOK"
 
+printf '%s' "$CID" > "$TMP/cid"
+printf '%s' "$SEC" > "$TMP/sec"
 code=$(curl -s -S -m 30 -o "$TMP/login.json" -w "%{http_code}" -X POST "$HOST/api/4.0/login" \
-  --data-urlencode "client_id=$CID" --data-urlencode "client_secret=$SEC" 2>/dev/null)
+  --data-urlencode "client_id@$TMP/cid" --data-urlencode "client_secret@$TMP/sec" 2>/dev/null)
+rm -f "$TMP/cid" "$TMP/sec"
 TOKEN=$(tr ',' '\n' < "$TMP/login.json" 2>/dev/null | grep access_token | cut -d'"' -f4)
+printf 'header = "Authorization: token %s"\n' "$TOKEN" > "$TMP/curlrc"
 if [ "$code" != "200" ] || [ -z "$TOKEN" ]; then
   echo "  login     $code. Check the client ID and secret, and the host."
   exit 3
@@ -168,7 +184,7 @@ else
   echo "  note  could not list visible Looks ($code)"
 fi
 
-curl -s -S -m 30 -o /dev/null -X DELETE -H "Authorization: token $TOKEN" "$HOST/api/4.0/logout" 2>/dev/null
+curl -s -S -m 30 -o /dev/null -X DELETE -K "$TMP/curlrc" "$HOST/api/4.0/logout" 2>/dev/null
 
 echo
 if [ "$FAILED" = "1" ]; then

@@ -18,6 +18,7 @@
  */
 
 import { spawn, spawnSync } from "node:child_process";
+import { createServer } from "node:net";
 import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -35,6 +36,18 @@ const RUNNERS = {
   sh: { cmd: "bash", args: ["scripts/acceptance_mac.sh"] },
   ps1: {
     cmd: "powershell",
+    args: [
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      "scripts/acceptance_windows.ps1",
+    ],
+  },
+  // The same file under PowerShell 7, which many Windows machines also have. It differs from
+  // 5.1 in ways that reach this script: ConvertFrom-Json enumerates an array there, so a
+  // one-row response read as "not rows" until the check stopped asking the parsed object.
+  pwsh: {
+    cmd: "pwsh",
     args: [
       "-ExecutionPolicy",
       "Bypass",
@@ -64,6 +77,25 @@ const CLIENT_ID = "rehearsal-client-id";
 const SECRET = "rehearsal-secret-must-not-print";
 // Served by the mock on both run_look and the open key's inline query. A value, not a count.
 const FIGURE = "1263";
+
+/* Nothing else may be on the port. A stub left over from an interrupted run keeps serving the
+   posture it was started with, and every run after it then tests a key nobody asked about: the
+   whole suite reported 404s from a `masked` stub while claiming to test `scoped`. */
+await new Promise((resolve, reject) => {
+  const probe = createServer()
+    .once("error", (e) =>
+      reject(
+        new Error(
+          e.code === "EADDRINUSE"
+            ? `port ${PORT} is already in use, probably a looker-stub left from an interrupted run. ` +
+                `Stop it first: pkill -f "looker-stub.mjs --access"`
+            : e.message,
+        ),
+      ),
+    )
+    .once("listening", () => probe.close(resolve));
+  probe.listen(PORT);
+});
 
 const width = Math.max(...Object.keys(ACCESS).map((n) => n.length));
 let failures = 0;

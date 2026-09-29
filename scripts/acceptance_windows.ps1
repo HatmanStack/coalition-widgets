@@ -77,12 +77,22 @@ function Read-Json($path) {
   try { return $raw | ConvertFrom-Json } catch { return $null }
 }
 
+# Whether the body is a JSON array, read from the text rather than from what ConvertFrom-Json
+# hands back. Windows PowerShell 5.1 returns an array whole; PowerShell 7 enumerates it, so a
+# one-row response arrives as a single object and "did it return rows" would answer no on any
+# machine with pwsh. The text says what the server sent, in every version.
+function Test-JsonArray($path) {
+  $raw = ""
+  if (Test-Path $path) { $raw = Get-Content $path -Raw }
+  return ($raw -and $raw.TrimStart().StartsWith("["))
+}
+
 # No -L anywhere: curl does not follow redirects unless asked, and the token must not be carried
 # to a host nobody configured.
 function Invoke-Api($method, $path, $outName, $extra) {
   $out = Join-Path $tmp $outName
   $params = @("-s", "-S", "-m", "30", "-o", $out, "-w", "%{http_code}", "-X", $method,
-              "-H", "Authorization: token $token", "$LookerHost/api/4.0$path")
+              "-K", (Join-Path $tmp "curlrc"), "$LookerHost/api/4.0$path")
   if ($extra) { $params += $extra }
   return (& curl.exe @params)
 }
@@ -97,14 +107,21 @@ try {
   Write-Output "Looker acceptance test   $LookerHost   Look $LookId"
   Write-Output ""
 
+  # Nothing sensitive on a command line: another process can read one, and endpoint software
+  # commonly logs what it sees there. curl reads the credentials out of files and the token out
+  # of a config file, all under the user's own TEMP and deleted on the way out.
   $loginOut = Join-Path $tmp "login.json"
+  [System.IO.File]::WriteAllText((Join-Path $tmp "cid"), $cid)
+  [System.IO.File]::WriteAllText((Join-Path $tmp "sec"), $sec)
   $code = & curl.exe -s -S -m 30 -o $loginOut -w "%{http_code}" -X POST "$LookerHost/api/4.0/login" `
-    --data-urlencode "client_id=$cid" --data-urlencode "client_secret=$sec"
+    --data-urlencode "client_id@$(Join-Path $tmp 'cid')" --data-urlencode "client_secret@$(Join-Path $tmp 'sec')"
+  Remove-Item (Join-Path $tmp "cid"), (Join-Path $tmp "sec") -Force -ErrorAction SilentlyContinue
   $token = (Read-Json $loginOut).access_token
   if ($code -ne "200" -or -not $token) {
     Write-Output "  login     $code. Check the client ID and secret, and the host."
     exit 3
   }
+  [System.IO.File]::WriteAllText((Join-Path $tmp "curlrc"), "header = `"Authorization: token $token`"`n")
 
   $failed = $false; $unknown = $false; $ran = @()
 
@@ -115,8 +132,8 @@ try {
     if ($outcome -eq "??") { $script:unknown = $true }
   }
 
-  function Get-Rows($body) {
-    $n = if ($body -is [array]) { $body.Count } else { 1 }
+  function Get-Rows($path) {
+    $n = @(Read-Json $path).Count
     if ($n -eq 1) { "1 row" } else { "$n rows" }
   }
 
@@ -124,7 +141,7 @@ try {
   function Get-Classification($code, $path) {
     $body = Read-Json $path
     if ($code -eq "403") { return @("ok", "403 refused") }
-    if ($code -eq "200" -and $body -is [array]) { return @("FAIL", "200, ran and returned $(Get-Rows $body)") }
+    if ($code -eq "200" -and (Test-JsonArray $path)) { return @("FAIL", "200, ran and returned $(Get-Rows $path)") }
     if ($code -eq "200" -and $body.slug) { return @("FAIL", "200, created (not run)") }
     if ($code -eq "200") { return @("??", "200 with an error object, not a refusal") }
     if ([int]$code -ge 300 -and [int]$code -lt 400) { return @("??", "$code redirect, not followed") }
@@ -138,8 +155,8 @@ try {
   $folder = $look.folder_id
 
   $code = Invoke-Api GET "/looks/$LookId/run/json`?apply_formatting=false&limit=500" "rows.json"
-  $rows = Read-Json (Join-Path $tmp "rows.json")
-  if ($code -eq "200" -and $rows -is [array]) { Write-Line "run_look" "ok" "200, $(Get-Rows $rows)" }
+  $rowsPath = Join-Path $tmp "rows.json"
+  if ($code -eq "200" -and (Test-JsonArray $rowsPath)) { Write-Line "run_look" "ok" "200, $(Get-Rows $rowsPath)" }
   elseif ($code -eq "200") { Write-Line "run_look" "??" "200 with an error object: the Look did not run" }
   else { Write-Line "run_look" "??" "$code`: the key cannot run Look $LookId" }
 
@@ -183,7 +200,7 @@ try {
     Write-Output "  note  could not list visible Looks ($code)"
   }
 
-  & curl.exe -s -S -m 30 -o NUL -X DELETE -H "Authorization: token $token" "$LookerHost/api/4.0/logout" | Out-Null
+  & curl.exe -s -S -m 30 -o NUL -X DELETE -K (Join-Path $tmp "curlrc") "$LookerHost/api/4.0/logout" | Out-Null
 
   Write-Output ""
   if ($failed) {
@@ -203,4 +220,10 @@ try {
 
 } finally {
   Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+  # Not suppressed: a verdict of PASS while the token is still on disk would be a false one.
+  if (Test-Path $tmp) {
+    Write-Output ""
+    Write-Output "COULD NOT CLEAN UP  $tmp still holds the login token. Delete it yourself."
+    exit 3
+  }
 }
