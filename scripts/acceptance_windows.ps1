@@ -87,112 +87,120 @@ function Invoke-Api($method, $path, $outName, $extra) {
   return (& curl.exe @params)
 }
 
-Write-Output ""
-Write-Output "Looker acceptance test   $LookerHost   Look $LookId"
-Write-Output ""
+# Everything that touches the temp directory runs inside this, so the token and any rows it holds
+# are deleted on every path out: a verdict, a terminating error, or the login giving up.
+# scripts/check-acceptance.mjs gives each run a TEMP of its own and fails if anything is left in
+# it, which is what proves the claim rather than assuming PowerShell honours it. Bash has
+# trap EXIT for the same reason.
+try {
+  Write-Output ""
+  Write-Output "Looker acceptance test   $LookerHost   Look $LookId"
+  Write-Output ""
 
-$loginOut = Join-Path $tmp "login.json"
-$code = & curl.exe -s -S -m 30 -o $loginOut -w "%{http_code}" -X POST "$LookerHost/api/4.0/login" `
-  --data-urlencode "client_id=$cid" --data-urlencode "client_secret=$sec"
-$token = (Read-Json $loginOut).access_token
-if ($code -ne "200" -or -not $token) {
-  Write-Output "  login     $code. Check the client ID and secret, and the host."
-  Remove-Item $tmp -Recurse -Force
-  exit 3
-}
-
-$failed = $false; $unknown = $false; $ran = @()
-
-function Write-Line($label, $outcome, $detail) {
-  $mark = switch ($outcome) { "ok" { "ok  " } "FAIL" { "FAIL" } default { "??  " } }
-  Write-Output ("  {0}  {1,-12}  {2}" -f $mark, $label, $detail)
-  if ($outcome -eq "FAIL") { $script:failed = $true; $script:ran += $label }
-  if ($outcome -eq "??") { $script:unknown = $true }
-}
-
-function Get-Rows($body) {
-  $n = if ($body -is [array]) { $body.Count } else { 1 }
-  if ($n -eq 1) { "1 row" } else { "$n rows" }
-}
-
-# What a refusal came back as, for something the key must not be able to do.
-function Get-Classification($code, $path) {
-  $body = Read-Json $path
-  if ($code -eq "403") { return @("ok", "403 refused") }
-  if ($code -eq "200" -and $body -is [array]) { return @("FAIL", "200, ran and returned $(Get-Rows $body)") }
-  if ($code -eq "200" -and $body.slug) { return @("FAIL", "200, created (not run)") }
-  if ($code -eq "200") { return @("??", "200 with an error object, not a refusal") }
-  if ([int]$code -ge 300 -and [int]$code -lt 400) { return @("??", "$code redirect, not followed") }
-  return @("??", "$code, not the 403 a missing permission gives")
-}
-
-# The Look's own model, explore and fields: what the probe is built from, and its folder.
-$code = Invoke-Api GET "/looks/$LookId`?fields=id,folder_id,query" "look.json"
-$look = if ($code -eq "200") { Read-Json (Join-Path $tmp "look.json") } else { $null }
-$query = $look.query
-$folder = $look.folder_id
-
-$code = Invoke-Api GET "/looks/$LookId/run/json`?apply_formatting=false&limit=500" "rows.json"
-$rows = Read-Json (Join-Path $tmp "rows.json")
-if ($code -eq "200" -and $rows -is [array]) { Write-Line "run_look" "ok" "200, $(Get-Rows $rows)" }
-elseif ($code -eq "200") { Write-Line "run_look" "??" "200 with an error object: the Look did not run" }
-else { Write-Line "run_look" "??" "$code`: the key cannot run Look $LookId" }
-
-if (-not $query -or -not $query.model -or -not $query.view) {
-  Write-Line "own query" "??" "could not read the Look's query to build the probe"
-  Write-Line "SQL Runner" "??" "no model to probe with"
-} else {
-  $fields = if ($ClientField) { @($ClientField) } else { @($query.fields) }
-  Write-Json @{ model = $query.model; view = $query.view; fields = $fields; limit = "1" } (Join-Path $tmp "probe-body.json")
-  $code = Invoke-Api POST "/queries/run/json" "probe.json" @("-H", "Content-Type: application/json", "-d", "@$(Join-Path $tmp 'probe-body.json')")
-  $verdict = Get-Classification $code (Join-Path $tmp "probe.json")
-  Write-Line "own query" $verdict[0] $verdict[1]
-
-  Write-Json @{ model_name = $query.model; sql = "SELECT 1" } (Join-Path $tmp "sql-body.json")
-  $code = Invoke-Api POST "/sql_queries" "sql.json" @("-H", "Content-Type: application/json", "-d", "@$(Join-Path $tmp 'sql-body.json')")
-  $verdict = Get-Classification $code (Join-Path $tmp "sql.json")
-  Write-Line "SQL Runner" $verdict[0] $verdict[1]
-}
-
-# Where the account differs from the spec. Reported, not judged: the checks above are what decide.
-$code = Invoke-Api GET "/user`?fields=id,group_ids,credentials_api3" "user.json"
-if ($code -eq "200") {
-  $user = Read-Json (Join-Path $tmp "user.json")
-  $groups = @($user.group_ids)
-  $keys = @($user.credentials_api3 | Where-Object { -not $_.is_disabled })
-  if ($groups.Count -gt 0) { Write-Output "  note  the API user is in $($groups.Count) group(s); the spec said none" }
-  if ($keys.Count -gt 1) { Write-Output "  note  the API user holds $($keys.Count) active API keys; the spec said one" }
-} else {
-  Write-Output "  note  could not read the API user ($code)"
-}
-
-$code = Invoke-Api GET "/looks`?fields=id,folder_id" "looks.json"
-if ($code -eq "200") {
-  $looks = @(Read-Json (Join-Path $tmp "looks.json"))
-  $elsewhere = $looks | Where-Object { "$($_.folder_id)" -ne "$folder" } | Group-Object folder_id
-  if ($elsewhere) {
-    $where = ($elsewhere | ForEach-Object { "folder $($_.Name): $($_.Count)" }) -join ", "
-    Write-Output "  note  Looks visible outside folder $folder ($where)"
+  $loginOut = Join-Path $tmp "login.json"
+  $code = & curl.exe -s -S -m 30 -o $loginOut -w "%{http_code}" -X POST "$LookerHost/api/4.0/login" `
+    --data-urlencode "client_id=$cid" --data-urlencode "client_secret=$sec"
+  $token = (Read-Json $loginOut).access_token
+  if ($code -ne "200" -or -not $token) {
+    Write-Output "  login     $code. Check the client ID and secret, and the host."
+    exit 3
   }
-} else {
-  Write-Output "  note  could not list visible Looks ($code)"
-}
 
-& curl.exe -s -S -m 30 -o NUL -X DELETE -H "Authorization: token $token" "$LookerHost/api/4.0/logout" | Out-Null
-Remove-Item $tmp -Recurse -Force
+  $failed = $false; $unknown = $false; $ran = @()
 
-Write-Output ""
-if ($failed) {
-  Write-Output "FAIL  Do not store this key. It can do more than it was issued for."
-  Write-Output "      Ran when it should have been refused: $($ran -join ', ')."
-  Write-Output "      For Bitfocus: the role should carry access_data and see_looks only -"
-  Write-Output "      no explore, no use_sql_runner, no group inheritance."
-  exit 1
+  function Write-Line($label, $outcome, $detail) {
+    $mark = switch ($outcome) { "ok" { "ok  " } "FAIL" { "FAIL" } default { "??  " } }
+    Write-Output ("  {0}  {1,-12}  {2}" -f $mark, $label, $detail)
+    if ($outcome -eq "FAIL") { $script:failed = $true; $script:ran += $label }
+    if ($outcome -eq "??") { $script:unknown = $true }
+  }
+
+  function Get-Rows($body) {
+    $n = if ($body -is [array]) { $body.Count } else { 1 }
+    if ($n -eq 1) { "1 row" } else { "$n rows" }
+  }
+
+  # What a refusal came back as, for something the key must not be able to do.
+  function Get-Classification($code, $path) {
+    $body = Read-Json $path
+    if ($code -eq "403") { return @("ok", "403 refused") }
+    if ($code -eq "200" -and $body -is [array]) { return @("FAIL", "200, ran and returned $(Get-Rows $body)") }
+    if ($code -eq "200" -and $body.slug) { return @("FAIL", "200, created (not run)") }
+    if ($code -eq "200") { return @("??", "200 with an error object, not a refusal") }
+    if ([int]$code -ge 300 -and [int]$code -lt 400) { return @("??", "$code redirect, not followed") }
+    return @("??", "$code, not the 403 a missing permission gives")
+  }
+
+  # The Look's own model, explore and fields: what the probe is built from, and its folder.
+  $code = Invoke-Api GET "/looks/$LookId`?fields=id,folder_id,query" "look.json"
+  $look = if ($code -eq "200") { Read-Json (Join-Path $tmp "look.json") } else { $null }
+  $query = $look.query
+  $folder = $look.folder_id
+
+  $code = Invoke-Api GET "/looks/$LookId/run/json`?apply_formatting=false&limit=500" "rows.json"
+  $rows = Read-Json (Join-Path $tmp "rows.json")
+  if ($code -eq "200" -and $rows -is [array]) { Write-Line "run_look" "ok" "200, $(Get-Rows $rows)" }
+  elseif ($code -eq "200") { Write-Line "run_look" "??" "200 with an error object: the Look did not run" }
+  else { Write-Line "run_look" "??" "$code`: the key cannot run Look $LookId" }
+
+  if (-not $query -or -not $query.model -or -not $query.view) {
+    Write-Line "own query" "??" "could not read the Look's query to build the probe"
+    Write-Line "SQL Runner" "??" "no model to probe with"
+  } else {
+    $fields = if ($ClientField) { @($ClientField) } else { @($query.fields) }
+    Write-Json @{ model = $query.model; view = $query.view; fields = $fields; limit = "1" } (Join-Path $tmp "probe-body.json")
+    $code = Invoke-Api POST "/queries/run/json" "probe.json" @("-H", "Content-Type: application/json", "-d", "@$(Join-Path $tmp 'probe-body.json')")
+    $verdict = Get-Classification $code (Join-Path $tmp "probe.json")
+    Write-Line "own query" $verdict[0] $verdict[1]
+
+    Write-Json @{ model_name = $query.model; sql = "SELECT 1" } (Join-Path $tmp "sql-body.json")
+    $code = Invoke-Api POST "/sql_queries" "sql.json" @("-H", "Content-Type: application/json", "-d", "@$(Join-Path $tmp 'sql-body.json')")
+    $verdict = Get-Classification $code (Join-Path $tmp "sql.json")
+    Write-Line "SQL Runner" $verdict[0] $verdict[1]
+  }
+
+  # Where the account differs from the spec. Reported, not judged: the checks above are what decide.
+  $code = Invoke-Api GET "/user`?fields=id,group_ids,credentials_api3" "user.json"
+  if ($code -eq "200") {
+    $user = Read-Json (Join-Path $tmp "user.json")
+    $groups = @($user.group_ids)
+    $keys = @($user.credentials_api3 | Where-Object { -not $_.is_disabled })
+    if ($groups.Count -gt 0) { Write-Output "  note  the API user is in $($groups.Count) group(s); the spec said none" }
+    if ($keys.Count -gt 1) { Write-Output "  note  the API user holds $($keys.Count) active API keys; the spec said one" }
+  } else {
+    Write-Output "  note  could not read the API user ($code)"
+  }
+
+  $code = Invoke-Api GET "/looks`?fields=id,folder_id" "looks.json"
+  if ($code -eq "200") {
+    $looks = @(Read-Json (Join-Path $tmp "looks.json"))
+    $elsewhere = $looks | Where-Object { "$($_.folder_id)" -ne "$folder" } | Group-Object folder_id
+    if ($elsewhere) {
+      $where = ($elsewhere | ForEach-Object { "folder $($_.Name): $($_.Count)" }) -join ", "
+      Write-Output "  note  Looks visible outside folder $folder ($where)"
+    }
+  } else {
+    Write-Output "  note  could not list visible Looks ($code)"
+  }
+
+  & curl.exe -s -S -m 30 -o NUL -X DELETE -H "Authorization: token $token" "$LookerHost/api/4.0/logout" | Out-Null
+
+  Write-Output ""
+  if ($failed) {
+    Write-Output "FAIL  Do not store this key. It can do more than it was issued for."
+    Write-Output "      Ran when it should have been refused: $($ran -join ', ')."
+    Write-Output "      For Bitfocus: the role should carry access_data and see_looks only -"
+    Write-Output "      no explore, no use_sql_runner, no group inheritance."
+    exit 1
+  }
+  if ($unknown) {
+    Write-Output "INCONCLUSIVE  Nothing ran that should not have, but the test did not prove the"
+    Write-Output "      key is scoped. Do not store it yet. The ?? lines say what came back."
+    exit 2
+  }
+  Write-Output "PASS  The key runs its Look and is refused everything else."
+  exit 0
+
+} finally {
+  Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
 }
-if ($unknown) {
-  Write-Output "INCONCLUSIVE  Nothing ran that should not have, but the test did not prove the"
-  Write-Output "      key is scoped. Do not store it yet. The ?? lines say what came back."
-  exit 2
-}
-Write-Output "PASS  The key runs its Look and is refused everything else."
-exit 0

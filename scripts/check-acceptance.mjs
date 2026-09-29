@@ -18,6 +18,9 @@
  */
 
 import { spawn, spawnSync } from "node:child_process";
+import { mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ACCESS } from "../mock-looker/scenarios.mjs";
 
@@ -74,6 +77,11 @@ for (const runner of chosen)
     );
     await new Promise((r) => setTimeout(r, 600));
 
+    /* A TEMP of its own, so "the bodies are deleted on the way out" is checked rather than
+       claimed. All three read it: mktemp -d and Python's tempfile take TMPDIR, PowerShell takes
+       TEMP. Every run holds a login token there, and a key that should have been refused holds
+       rows too. */
+    const scratch = mkdtempSync(join(tmpdir(), "acceptance-"));
     let run;
     try {
       run = spawnSync(
@@ -92,6 +100,9 @@ for (const runner of chosen)
           encoding: "utf-8",
           env: {
             ...process.env,
+            TMPDIR: scratch,
+            TEMP: scratch,
+            TMP: scratch,
             LOOKER_CLIENT_ID: CLIENT_ID,
             LOOKER_CLIENT_SECRET: SECRET,
           },
@@ -110,6 +121,10 @@ for (const runner of chosen)
     if (output.includes(SECRET) || output.includes(CLIENT_ID))
       problems.push("printed the key");
     if (output.includes(FIGURE)) problems.push("printed a figure");
+    const left = readdirSync(scratch);
+    if (left.length)
+      problems.push(`left ${left.length} file(s) behind in TEMP`);
+    rmSync(scratch, { recursive: true, force: true });
 
     if (problems.length) failures++;
     console.log(
