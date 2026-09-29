@@ -18,6 +18,7 @@
  */
 
 import { spawn, spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -77,6 +78,43 @@ const CLIENT_ID = "rehearsal-client-id";
 const SECRET = "rehearsal-secret-must-not-print";
 // Served by the mock on both run_look and the open key's inline query. A value, not a count.
 const FIGURE = "1263";
+
+/* Three things about the PowerShell copy that cannot be seen by reading it on a Mac or a Linux
+   box, and that have each cost a CI round trip:
+
+   - Windows PowerShell 5.1 reads a .ps1 as ANSI unless it has a byte order mark, so a UTF-8 em
+     dash arrives as three CP1252 characters, one of which PowerShell treats as a quote.
+   - "$name:" is a drive-qualified variable reference, like $env:PATH. "logout returned $code:"
+     is a parse error, and the file will not run at all.
+
+   Checked here rather than on the runner, because a parse error makes every posture exit 1 -
+   which looks like a correct answer for the two postures that expect 1. */
+const ps1 = readFileSync(`${ROOT}/scripts/acceptance_windows.ps1`);
+const ps1Text = ps1.toString("utf8").replace(/^\uFEFF/, ""); // the mark itself is not content
+const ps1Problems = [];
+if (!ps1.subarray(0, 3).equals(Buffer.from([0xef, 0xbb, 0xbf])))
+  ps1Problems.push(
+    "no byte order mark: Windows PowerShell 5.1 will read it as ANSI",
+  );
+for (const [i, l] of ps1Text.split("\n").entries()) {
+  const nonAscii = [...l].find((c) => c.charCodeAt(0) > 127);
+  if (nonAscii)
+    ps1Problems.push(
+      `line ${i + 1}: non-ASCII ${JSON.stringify(nonAscii)}, which needs the BOM to survive`,
+    );
+  const drive = l.match(
+    /\$(?!env:|script:|global:|using:|local:|private:)[A-Za-z_][A-Za-z0-9_]*:/,
+  );
+  if (drive && !l.trimStart().startsWith("#"))
+    ps1Problems.push(
+      `line ${i + 1}: ${drive[0]} reads as a drive-qualified variable; use \${name}:`,
+    );
+}
+if (ps1Problems.length) {
+  console.error("  acceptance_windows.ps1 will not parse on Windows:");
+  for (const p of ps1Problems) console.error(`    ${p}`);
+  process.exit(1);
+}
 
 /* Nothing else may be on the port. A stub left over from an interrupted run keeps serving the
    posture it was started with, and every run after it then tests a key nobody asked about: the

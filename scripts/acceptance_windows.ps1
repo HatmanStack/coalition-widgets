@@ -209,7 +209,7 @@ try {
 
   $code = & curl.exe -q -s -S -m 30 -o NUL -w "%{http_code}" -X DELETE -K (Join-Path $tmp "curlrc") "$LookerHost/api/4.0/logout"
   if ($LASTEXITCODE -ne 0 -or $code -notin @("200", "204")) {
-    Write-Output "  note  logout returned $code: this session's token stays valid until it expires"
+    Write-Output "  note  logout returned ${code}: this session's token stays valid until it expires"
   }
 
   Write-Output ""
