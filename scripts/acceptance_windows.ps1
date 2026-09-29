@@ -45,9 +45,14 @@ if (-not $LookerHost -or -not $LookId) {
   exit 3
 }
 
-# https only, except a loopback address, which is where the mock runs for rehearsal.
-if (-not ($LookerHost -like "https://*" -or $LookerHost -like "http://localhost*" -or $LookerHost -like "http://127.0.0.1*")) {
-  Write-Output "refusing $(($LookerHost -split '://')[0])://: the key would cross the network in clear"
+# https only, except a loopback address, which is where the mock runs for rehearsal. Parsed
+# rather than matched with a wildcard: http://localhost* also matches
+# http://localhost.attacker.example, and the key would have gone there in clear.
+$parsed = $null
+try { $parsed = [uri]$LookerHost } catch { $parsed = $null }
+$loopback = @("localhost", "127.0.0.1", "::1")
+if (-not $parsed -or -not ($parsed.Scheme -eq "https" -or ($parsed.Scheme -eq "http" -and $loopback -contains $parsed.Host))) {
+  Write-Output "refusing $LookerHost : the key would cross the network in clear"
   exit 3
 }
 $LookerHost = $LookerHost.TrimEnd("/")
@@ -91,7 +96,9 @@ function Test-JsonArray($path) {
 # to a host nobody configured.
 function Invoke-Api($method, $path, $outName, $extra) {
   $out = Join-Path $tmp $outName
-  $params = @("-s", "-S", "-m", "30", "-o", $out, "-w", "%{http_code}", "-X", $method,
+  # -q first: a user's own curl config could add --location, and a redirect would carry the
+  # Authorization header to whatever host it named.
+  $params = @("-q", "-s", "-S", "-m", "30", "-o", $out, "-w", "%{http_code}", "-X", $method,
               "-K", (Join-Path $tmp "curlrc"), "$LookerHost/api/4.0$path")
   if ($extra) { $params += $extra }
   return (& curl.exe @params)
@@ -113,7 +120,7 @@ try {
   $loginOut = Join-Path $tmp "login.json"
   [System.IO.File]::WriteAllText((Join-Path $tmp "cid"), $cid)
   [System.IO.File]::WriteAllText((Join-Path $tmp "sec"), $sec)
-  $code = & curl.exe -s -S -m 30 -o $loginOut -w "%{http_code}" -X POST "$LookerHost/api/4.0/login" `
+  $code = & curl.exe -q -s -S -m 30 -o $loginOut -w "%{http_code}" -X POST "$LookerHost/api/4.0/login" `
     --data-urlencode "client_id@$(Join-Path $tmp 'cid')" --data-urlencode "client_secret@$(Join-Path $tmp 'sec')"
   Remove-Item (Join-Path $tmp "cid"), (Join-Path $tmp "sec") -Force -ErrorAction SilentlyContinue
   $token = (Read-Json $loginOut).access_token
@@ -200,7 +207,10 @@ try {
     Write-Output "  note  could not list visible Looks ($code)"
   }
 
-  & curl.exe -s -S -m 30 -o NUL -X DELETE -K (Join-Path $tmp "curlrc") "$LookerHost/api/4.0/logout" | Out-Null
+  $code = & curl.exe -q -s -S -m 30 -o NUL -w "%{http_code}" -X DELETE -K (Join-Path $tmp "curlrc") "$LookerHost/api/4.0/logout"
+  if ($LASTEXITCODE -ne 0 -or $code -notin @("200", "204")) {
+    Write-Output "  note  logout returned $code: this session's token stays valid until it expires"
+  }
 
   Write-Output ""
   if ($failed) {

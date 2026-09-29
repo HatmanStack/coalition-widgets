@@ -36,11 +36,21 @@ while [ $# -gt 0 ]; do
 done
 [ -n "$HOST" ] && [ -n "$LOOK" ] || { echo "usage: bash acceptance_mac.sh --host https://x.cloud.looker.com --look 123"; exit 3; }
 
-# https only, except a loopback address, which is where the mock runs for rehearsal.
-case "$HOST" in
-  https://*) ;;
-  http://localhost*|http://127.0.0.1*) ;;
-  *) echo "refusing ${HOST%%:*}://: the key would cross the network in clear"; exit 3 ;;
+# https only, except a loopback address, which is where the mock runs for rehearsal. The host is
+# taken apart rather than matched with a glob: http://localhost* also matches
+# http://localhost.attacker.example, and the key would have gone there in clear.
+SCHEME="${HOST%%://*}"
+REST="${HOST#*://}"
+HOSTNAME_ONLY="${REST%%/*}"
+HOSTNAME_ONLY="${HOSTNAME_ONLY%%:*}"
+case "$SCHEME" in
+  https) ;;
+  http)
+    case "$HOSTNAME_ONLY" in
+      localhost|127.0.0.1|'[::1]') ;;
+      *) echo "refusing http:// to $HOSTNAME_ONLY: the key would cross the network in clear"; exit 3 ;;
+    esac ;;
+  *) echo "refusing $SCHEME://: the key would cross the network in clear"; exit 3 ;;
 esac
 HOST="${HOST%/}"
 HOST="${HOST%/api/4.0}"
@@ -69,7 +79,7 @@ trap cleanup EXIT
 # to a host nobody configured.
 api() { # method path outfile [extra curl args...]
   local method="$1" path="$2" out="$3"; shift 3
-  curl -s -S -m 30 -o "$TMP/$out" -w "%{http_code}" -X "$method" \
+  curl -q -s -S -m 30 -o "$TMP/$out" -w "%{http_code}" -X "$method" \
     -K "$TMP/curlrc" "$HOST/api/4.0$path" "$@" 2>/dev/null
 }
 
@@ -77,7 +87,7 @@ printf '\nLooker acceptance test   %s   Look %s\n\n' "$HOST" "$LOOK"
 
 printf '%s' "$CID" > "$TMP/cid"
 printf '%s' "$SEC" > "$TMP/sec"
-code=$(curl -s -S -m 30 -o "$TMP/login.json" -w "%{http_code}" -X POST "$HOST/api/4.0/login" \
+code=$(curl -q -s -S -m 30 -o "$TMP/login.json" -w "%{http_code}" -X POST "$HOST/api/4.0/login" \
   --data-urlencode "client_id@$TMP/cid" --data-urlencode "client_secret@$TMP/sec" 2>/dev/null)
 rm -f "$TMP/cid" "$TMP/sec"
 TOKEN=$(tr ',' '\n' < "$TMP/login.json" 2>/dev/null | grep access_token | cut -d'"' -f4)
@@ -184,7 +194,11 @@ else
   echo "  note  could not list visible Looks ($code)"
 fi
 
-curl -s -S -m 30 -o /dev/null -X DELETE -K "$TMP/curlrc" "$HOST/api/4.0/logout" 2>/dev/null
+code=$(curl -q -s -S -m 30 -o /dev/null -w "%{http_code}" -X DELETE -K "$TMP/curlrc" "$HOST/api/4.0/logout" 2>/dev/null)
+case "$code" in
+  200|204) ;;
+  *) echo "  note  logout returned $code: this session's token stays valid until it expires" ;;
+esac
 
 echo
 if [ "$FAILED" = "1" ]; then
