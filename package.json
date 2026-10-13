@@ -6,7 +6,7 @@
   "scripts": {
     "deploy": "node scripts/deploy.mjs",
     "build": "node embed/build.mjs",
-    "validate": "sam validate --lint --region us-east-1 && uvx cfn-lint template.yaml",
+    "validate": "sam validate --lint --region us-east-1 && uvx --from \"cfn-lint==1.*\" cfn-lint template.yaml",
     "test": "npm run test:errors && npm run test:layout && npm run test:identifiers && npm run test:llm-txt && npm run test:scenarios && npm run test:acceptance",
     "dev": "node embed/test/serve.mjs",
     "test:errors": "node embed/test/errors.mjs",
