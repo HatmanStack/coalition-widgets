@@ -93,10 +93,19 @@ printf '\nLooker acceptance test   %s   Look %s\n\n' "$HOST" "$LOOK"
 
 printf '%s' "$CID" > "$TMP/cid"
 printf '%s' "$SEC" > "$TMP/sec"
-code=$(curl -q -s -S -m 30 -o "$TMP/login.json" -w "%{http_code}" -X POST "$HOST/api/4.0/login" \
-  --data-urlencode "client_id@$TMP/cid" --data-urlencode "client_secret@$TMP/sec" 2>/dev/null)
+code=$(curl -q -s -S -m 30 --stderr "$TMP/login.err" -o "$TMP/login.json" -w "%{http_code}" \
+  -X POST "$HOST/api/4.0/login" \
+  --data-urlencode "client_id@$TMP/cid" --data-urlencode "client_secret@$TMP/sec")
 rm -f "$TMP/cid" "$TMP/sec"
-TOKEN=$(tr ',' '\n' < "$TMP/login.json" 2>/dev/null | grep access_token | cut -d'"' -f4)
+
+# 000 means curl never got an answer: no route, a proxy in the way, a certificate it would not
+# accept. Saying "check the client ID and secret" there sends somebody hunting a credential
+# problem they do not have, and the line curl wrote names the real one.
+if [ "$code" = "000" ]; then
+  echo "  could not reach $HOST: $(tr -d '\r' < "$TMP/login.err" 2>/dev/null | grep . | tail -1)"
+  exit 3
+fi
+TOKEN=$(tr ',{}' '\n\n\n' < "$TMP/login.json" 2>/dev/null | grep access_token | cut -d'"' -f4)
 printf 'header = "Authorization: token %s"\n' "$TOKEN" > "$TMP/curlrc"
 if [ "$code" != "200" ] || [ -z "$TOKEN" ]; then
   echo "  login     $code. Check the client ID and secret, and the host."
@@ -128,7 +137,8 @@ rows_in() { # an array of flat row objects; [] is none
 classify() { # status file -> sets OUTCOME and DETAIL
   local code="$1" file="$2" first
   first=$(head -c1 "$file" 2>/dev/null)
-  if [ "$code" = "403" ]; then OUTCOME=ok; DETAIL="403 refused"
+  if [ "$code" = "000" ]; then OUTCOME=??; DETAIL="the host stopped answering"
+  elif [ "$code" = "403" ]; then OUTCOME=ok; DETAIL="403 refused"
   elif [ "$code" = "200" ] && [ "$first" = "[" ]; then
     OUTCOME=FAIL; DETAIL="200, ran and returned $(rows_in "$file")"
   elif [ "$code" = "200" ] && grep -q '"slug"' "$file" 2>/dev/null; then
@@ -159,6 +169,8 @@ if [ "$code" = "200" ] && [ "$first" = "[" ]; then
   line run_look ok "200, $(rows_in "$TMP/rows.json")"
 elif [ "$code" = "200" ]; then
   line run_look '??' "200 with an error object: the Look did not run"
+elif [ "$code" = "000" ]; then
+  line run_look '??' "the host stopped answering"
 else
   line run_look '??' "$code: the key cannot run Look $LOOK"
 fi
