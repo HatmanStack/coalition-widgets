@@ -1,3 +1,7 @@
+# Python 3.13, the runtime the publisher deploys on. Named rather than inferred so a rule that
+# only applies to newer syntax does not switch on when a contributor's interpreter differs.
+target-version = "py313"
+
 # `contract` and `looker` sit beside app.py in publisher/ and are imported by bare name, because
 # that is how they resolve from the Lambda's package root. Without this, isort files them with
 # boto3 as third-party and asks for the blank line between them to go — which would delete the

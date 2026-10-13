@@ -65,7 +65,12 @@ if ($LookerHost.EndsWith("/api/4.0")) { $LookerHost = $LookerHost.Substring(0, $
 
 $cid = $env:LOOKER_CLIENT_ID
 $sec = $env:LOOKER_CLIENT_SECRET
-if (-not $cid) { $cid = Read-Host "Client ID" }
+# Both hidden, like acceptance.py. This is read out on a shared screen, and half a credential
+# is still half a credential.
+if (-not $cid) {
+  $secureId = Read-Host "Client ID" -AsSecureString
+  $cid = [System.Net.NetworkCredential]::new("", $secureId).Password
+}
 if (-not $sec) {
   $secure = Read-Host "Client secret" -AsSecureString
   $sec = [System.Net.NetworkCredential]::new("", $secure).Password
@@ -137,9 +142,20 @@ try {
   $loginOut = Join-Path $tmp "login.json"
   [System.IO.File]::WriteAllText((Join-Path $tmp "cid"), $cid)
   [System.IO.File]::WriteAllText((Join-Path $tmp "sec"), $sec)
-  $code = & curl.exe -q -s -S -m 30 -o $loginOut -w "%{http_code}" -X POST "$LookerHost/api/4.0/login" `
+  $loginErr = Join-Path $tmp "login.err"
+  $code = & curl.exe -q -s -S -m 30 --stderr $loginErr -o $loginOut -w "%{http_code}" -X POST "$LookerHost/api/4.0/login" `
     --data-urlencode "client_id@$(Join-Path $tmp 'cid')" --data-urlencode "client_secret@$(Join-Path $tmp 'sec')"
   Remove-Item (Join-Path $tmp "cid"), (Join-Path $tmp "sec") -Force -ErrorAction SilentlyContinue
+
+  # 000 means curl never got an answer: no route, a proxy in the way, a certificate it would not
+  # accept. Saying "check the client ID and secret" there sends somebody hunting a credential
+  # problem they do not have, and the line curl wrote names the real one.
+  if ($code -eq "000") {
+    $why = ""
+    if (Test-Path $loginErr) { $why = (Get-Content $loginErr | Where-Object { $_ } | Select-Object -Last 1) }
+    Write-Output "  could not reach ${LookerHost}: $why"
+    exit 3
+  }
   $token = (Read-Json $loginOut).access_token
   if ($code -ne "200" -or -not $token) {
     Write-Output "  login     $code. Check the client ID and secret, and the host."
@@ -164,6 +180,7 @@ try {
   # What a refusal came back as, for something the key must not be able to do.
   function Get-Classification($code, $path) {
     $body = Read-Json $path
+    if ($code -eq "000") { return @("??", "the host stopped answering") }
     if ($code -eq "403") { return @("ok", "403 refused") }
     if ($code -eq "200" -and (Test-JsonArray $path)) { return @("FAIL", "200, ran and returned $(Get-Rows $path)") }
     if ($code -eq "200" -and $body.slug) { return @("FAIL", "200, created (not run)") }
@@ -182,6 +199,7 @@ try {
   $rowsPath = Join-Path $tmp "rows.json"
   if ($code -eq "200" -and (Test-JsonArray $rowsPath)) { Write-Line "run_look" "ok" "200, $(Get-Rows $rowsPath)" }
   elseif ($code -eq "200") { Write-Line "run_look" "??" "200 with an error object: the Look did not run" }
+  elseif ($code -eq "000") { Write-Line "run_look" "??" "the host stopped answering" }
   else { Write-Line "run_look" "??" "$code`: the key cannot run Look $LookId" }
 
   # fields too, like acceptance.py: without it this sent "fields":[null] and probed nothing.
