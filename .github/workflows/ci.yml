@@ -64,7 +64,9 @@ jobs:
       - name: sam validate --lint
         run: sam validate --lint --region us-east-1
       - name: cfn-lint
-        run: uvx cfn-lint==1.* template.yaml
+        # --from, so the version constraint is the package and cfn-lint is the command. The bare
+        # form works - uv infers the command from the requirement - but says it by implication.
+        run: uvx --from "cfn-lint==1.*" cfn-lint template.yaml
 
   bundle:
     name: Bundle and browser tests
