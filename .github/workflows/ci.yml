@@ -41,9 +41,9 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
       - name: Ruff check
-        run: uvx ruff check publisher scripts
+        run: uvx ruff@0.17.0 check publisher scripts
       - name: Ruff format check
-        run: uvx ruff format publisher scripts --check
+        run: uvx ruff@0.17.0 format publisher scripts --check
       - name: Import check
         # The publisher has no unit tests of its own yet; every check it makes is exercised
         # end to end by the scenario job below. This only proves the module still loads, which
@@ -64,7 +64,7 @@ jobs:
       - name: sam validate --lint
         run: sam validate --lint --region us-east-1
       - name: cfn-lint
-        run: uvx cfn-lint template.yaml
+        run: uvx cfn-lint==1.* template.yaml
 
   bundle:
     name: Bundle and browser tests

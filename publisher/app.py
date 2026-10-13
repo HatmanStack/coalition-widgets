@@ -9,7 +9,7 @@ because the widgets read the last good object and a partial write is worse than 
 import json
 import os
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import boto3
 
@@ -102,7 +102,7 @@ def _timestamp(value, field, where):
         )
     try:
         # Labelled UTC, as above: the digits Looker sent, not a conversion of them.
-        moment = datetime.strptime(value, form).replace(tzinfo=timezone.utc)
+        moment = datetime.strptime(value, form).replace(tzinfo=UTC)
     except ValueError:
         raise Refused(
             f"{where}: {field} is {value!r}, which is shaped like an as-of but is not a date."
@@ -526,7 +526,7 @@ def build(cadence, rows_by_look):
     payload = {
         "meta": {
             "schemaVersion": 1,
-            "generated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "generated": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "cadence": cadence,
             **PROVENANCE,
         },
@@ -605,7 +605,7 @@ def metric(cadence, failed, detail=""):
     IAM permission and still fires when the function has no network."""
     envelope = {
         "_aws": {
-            "Timestamp": int(datetime.now(timezone.utc).timestamp() * 1000),
+            "Timestamp": int(datetime.now(UTC).timestamp() * 1000),
             "CloudWatchMetrics": [
                 {
                     "Namespace": NAMESPACE,
@@ -648,7 +648,7 @@ def record(cadence, outcome, client=None):
                 {
                     "cadence": cadence,
                     "outcome": outcome,
-                    "at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
                     **PROVENANCE,
                 }
             ).encode("utf-8"),
