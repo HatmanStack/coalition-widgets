@@ -61,6 +61,18 @@ const RUNNERS = {
       "scripts/acceptance_windows.ps1",
     ],
   },
+  /* The same test as text, for a machine whose Group Policy forbids running script files - no
+     parameter overrides that, and what it governs is files. Pasted text takes no arguments, so
+     the host and Look arrive by environment the way the credentials already do, and the verdict
+     comes back in a variable because `exit` would close the console it was pasted into. */
+  nofile: {
+    cmd: "powershell",
+    inline: "scripts/acceptance_windows_nofile.txt",
+  },
+  "nofile-pwsh": {
+    cmd: "pwsh",
+    inline: "scripts/acceptance_windows_nofile.txt",
+  },
 };
 const asked = process.argv.find((a) => a.startsWith("--runner"));
 const askedValue = !asked
@@ -106,6 +118,18 @@ const FIGURE = "1263";
 
    Checked here rather than on the runner, because a parse error makes every posture exit 1 -
    which looks like a correct answer for the two postures that expect 1. */
+// The pasteable copy is generated from the PowerShell one; a stale copy would be a fifth
+// version of the judgement that nobody is testing.
+const generated = spawnSync(
+  "node",
+  [`${ROOT}/scripts/make-nofile-snippet.mjs`, "--check"],
+  { encoding: "utf-8" },
+);
+if (generated.status !== 0) {
+  console.error(generated.stdout || generated.stderr);
+  process.exit(1);
+}
+
 const ps1 = readFileSync(`${ROOT}/scripts/acceptance_windows.ps1`);
 const ps1Text = ps1.toString("utf8").replace(/^\uFEFF/, ""); // the mark itself is not content
 const ps1Problems = [];
@@ -179,19 +203,26 @@ for (const runner of chosen)
        TEMP. Every run holds a login token there, and a key that should have been refused holds
        rows too. */
       const scratch = mkdtempSync(join(tmpdir(), "acceptance-"));
+      const host = `http://localhost:${PORT}`;
+      const spec = RUNNERS[runner];
+      const inline = spec.inline
+        ? `${readFileSync(`${ROOT}/${spec.inline}`, "utf8")}\nexit $ScopeTestVerdict`
+        : null;
       let run;
       try {
         run = spawnSync(
-          RUNNERS[runner].cmd,
-          [
-            ...RUNNERS[runner].args.map((a) =>
-              a.startsWith("scripts/") ? `${ROOT}/${a}` : a,
-            ),
-            "--host",
-            `http://localhost:${PORT}`,
-            "--look",
-            look,
-          ],
+          spec.cmd,
+          inline
+            ? ["-NoProfile", "-Command", inline]
+            : [
+                ...spec.args.map((a) =>
+                  a.startsWith("scripts/") ? `${ROOT}/${a}` : a,
+                ),
+                "--host",
+                host,
+                "--look",
+                look,
+              ],
           {
             cwd: ROOT,
             encoding: "utf-8",
@@ -202,6 +233,7 @@ for (const runner of chosen)
               TMP: scratch,
               LOOKER_CLIENT_ID: CLIENT_ID,
               LOOKER_CLIENT_SECRET: SECRET,
+              ...(inline ? { LOOKER_HOST: host, LOOKER_LOOK: look } : {}),
             },
           },
         );
