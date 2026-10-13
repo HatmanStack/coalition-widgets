@@ -1,0 +1,216 @@
+# Looker scope test, for a machine where Group Policy forbids running script files.
+# Generated from scripts/acceptance_windows.ps1 - do not edit this copy.
+#
+# Paste the whole thing into Windows PowerShell and answer the four prompts. Nothing is saved to
+# disk and no file is run, so no execution policy applies. Run it once with a Look from the
+# public folder, which should end PASS, and again with one from a private folder, which should
+# end INCONCLUSIVE.
+
+function Invoke-ScopeTest {
+  $ErrorActionPreference = "Stop"
+
+  $ClientField = ""
+  $LookerHost = if ($env:LOOKER_HOST) { $env:LOOKER_HOST } else { Read-Host "Looker address" }
+  $LookId = if ($env:LOOKER_LOOK) { $env:LOOKER_LOOK } else { Read-Host "Look ID" }
+  if (-not $LookerHost -or -not $LookId) {
+    Write-Output "A Looker address and a Look ID are both needed."
+    $script:ScopeTestVerdict = 3; return
+  }
+
+  if ($LookerHost -notmatch "://") { $LookerHost = "https://$LookerHost" }
+  $parsed = $null
+  try { $parsed = [uri]$LookerHost } catch { $parsed = $null }
+  $loopback = @("localhost", "127.0.0.1", "::1")
+  if (-not $parsed -or -not $parsed.IsAbsoluteUri -or -not ($parsed.Scheme -eq "https" -or ($parsed.Scheme -eq "http" -and $loopback -contains $parsed.DnsSafeHost))) {
+    Write-Output "refusing $LookerHost : the key would cross the network in clear"
+    $script:ScopeTestVerdict = 3; return
+  }
+  $LookerHost = $LookerHost.TrimEnd("/")
+  if ($LookerHost.EndsWith("/api/4.0")) { $LookerHost = $LookerHost.Substring(0, $LookerHost.Length - 8).TrimEnd("/") }
+
+  $cid = $env:LOOKER_CLIENT_ID
+  $sec = $env:LOOKER_CLIENT_SECRET
+  if (-not $cid) {
+    $secureId = Read-Host "Client ID" -AsSecureString
+    $cid = [System.Net.NetworkCredential]::new("", $secureId).Password
+  }
+  if (-not $sec) {
+    $secure = Read-Host "Client secret" -AsSecureString
+    $sec = [System.Net.NetworkCredential]::new("", $secure).Password
+  }
+
+  $tmp = Join-Path $env:TEMP ([guid]::NewGuid().ToString())
+  New-Item -ItemType Directory -Path $tmp | Out-Null
+
+  function Write-Json($object, $path) {
+    [System.IO.File]::WriteAllText($path, ($object | ConvertTo-Json -Compress))
+  }
+
+  function Read-Json($path) {
+    $raw = ""
+    if (Test-Path $path) { $raw = Get-Content $path -Raw }
+    if (-not $raw) { return $null }
+    try { return $raw | ConvertFrom-Json } catch { return $null }
+  }
+
+  function Read-JsonArray($path) {
+    $parsed = Read-Json $path
+    if ($null -eq $parsed) { return @() }
+    $items = foreach ($item in $parsed) { $item }
+    return @($items)
+  }
+
+  function Test-JsonArray($path) {
+    $raw = ""
+    if (Test-Path $path) { $raw = Get-Content $path -Raw }
+    return ($raw -and $raw.TrimStart().StartsWith("["))
+  }
+
+  function Invoke-Api($method, $path, $outName, $extra) {
+    $out = Join-Path $tmp $outName
+    $params = @("-q", "-s", "-S", "-m", "30", "-o", $out, "-w", "%{http_code}", "-X", $method,
+                "-K", (Join-Path $tmp "curlrc"), "$LookerHost/api/4.0$path")
+    if ($extra) { $params += $extra }
+    return (& curl.exe @params)
+  }
+
+  try {
+    Write-Output ""
+    Write-Output "Looker acceptance test   $LookerHost   Look $LookId"
+    Write-Output ""
+
+    $loginOut = Join-Path $tmp "login.json"
+    [System.IO.File]::WriteAllText((Join-Path $tmp "cid"), $cid)
+    [System.IO.File]::WriteAllText((Join-Path $tmp "sec"), $sec)
+    $loginErr = Join-Path $tmp "login.err"
+    $code = & curl.exe -q -s -S -m 30 --stderr $loginErr -o $loginOut -w "%{http_code}" -X POST "$LookerHost/api/4.0/login" `
+      --data-urlencode "client_id@$(Join-Path $tmp 'cid')" --data-urlencode "client_secret@$(Join-Path $tmp 'sec')"
+    Remove-Item (Join-Path $tmp "cid"), (Join-Path $tmp "sec") -Force -ErrorAction SilentlyContinue
+
+    if ($code -eq "000") {
+      $why = ""
+      if (Test-Path $loginErr) { $why = (Get-Content $loginErr | Where-Object { $_ } | Select-Object -Last 1) }
+      Write-Output "  could not reach ${LookerHost}: $why"
+      $script:ScopeTestVerdict = 3; return
+    }
+    $token = (Read-Json $loginOut).access_token
+    if ($code -ne "200" -or -not $token) {
+      Write-Output "  login     $code. Check the client ID and secret, and the host."
+      $script:ScopeTestVerdict = 3; return
+    }
+    [System.IO.File]::WriteAllText((Join-Path $tmp "curlrc"), "header = `"Authorization: token $token`"`n")
+
+    $failed = $false; $unknown = $false; $ran = @()
+
+    function Write-Line($label, $outcome, $detail) {
+      $mark = switch ($outcome) { "ok" { "ok  " } "FAIL" { "FAIL" } default { "??  " } }
+      Write-Output ("  {0}  {1,-12}  {2}" -f $mark, $label, $detail)
+      if ($outcome -eq "FAIL") { $script:failed = $true; $script:ran += $label }
+      if ($outcome -eq "??") { $script:unknown = $true }
+    }
+
+    function Get-Rows($path) {
+      $n = @(Read-JsonArray $path).Count
+      if ($n -eq 1) { "1 row" } else { "$n rows" }
+    }
+
+    function Get-Classification($code, $path) {
+      $body = Read-Json $path
+      if ($code -eq "000") { return @("??", "the host stopped answering") }
+      if ($code -eq "403") { return @("ok", "403 refused") }
+      if ($code -eq "200" -and (Test-JsonArray $path)) { return @("FAIL", "200, ran and returned $(Get-Rows $path)") }
+      if ($code -eq "200" -and $body.slug) { return @("FAIL", "200, created (not run)") }
+      if ($code -eq "200") { return @("??", "200 with an error object, not a refusal") }
+      if ([int]$code -ge 300 -and [int]$code -lt 400) { return @("??", "$code redirect, not followed") }
+      return @("??", "$code, not the 403 a missing permission gives")
+    }
+
+    $code = Invoke-Api GET "/looks/$LookId`?fields=id,folder_id,query" "look.json"
+    $look = if ($code -eq "200") { Read-Json (Join-Path $tmp "look.json") } else { $null }
+    $query = $look.query
+    $folder = $look.folder_id
+
+    $code = Invoke-Api GET "/looks/$LookId/run/json`?apply_formatting=false&limit=500" "rows.json"
+    $rowsPath = Join-Path $tmp "rows.json"
+    if ($code -eq "200" -and (Test-JsonArray $rowsPath)) { Write-Line "run_look" "ok" "200, $(Get-Rows $rowsPath)" }
+    elseif ($code -eq "200") { Write-Line "run_look" "??" "200 with an error object: the Look did not run" }
+    elseif ($code -eq "000") { Write-Line "run_look" "??" "the host stopped answering" }
+    else { Write-Line "run_look" "??" "$code`: the key cannot run Look $LookId" }
+
+    if (-not $query -or -not $query.model -or -not $query.view -or -not $query.fields) {
+      Write-Line "own query" "??" "could not read the Look's query to build the probe"
+      Write-Line "SQL Runner" "??" "no model to probe with"
+    } else {
+      $fields = if ($ClientField) { @($ClientField) } else { @($query.fields) }
+      Write-Json @{ model = $query.model; view = $query.view; fields = $fields; limit = "1" } (Join-Path $tmp "probe-body.json")
+      $code = Invoke-Api POST "/queries/run/json" "probe.json" @("-H", "Content-Type: application/json", "-d", "@$(Join-Path $tmp 'probe-body.json')")
+      $verdict = Get-Classification $code (Join-Path $tmp "probe.json")
+      Write-Line "own query" $verdict[0] $verdict[1]
+
+      Write-Json @{ model_name = $query.model; sql = "SELECT 1" } (Join-Path $tmp "sql-body.json")
+      $code = Invoke-Api POST "/sql_queries" "sql.json" @("-H", "Content-Type: application/json", "-d", "@$(Join-Path $tmp 'sql-body.json')")
+      $verdict = Get-Classification $code (Join-Path $tmp "sql.json")
+      Write-Line "SQL Runner" $verdict[0] $verdict[1]
+    }
+
+    $code = Invoke-Api GET "/user`?fields=id,group_ids,credentials_api3" "user.json"
+    if ($code -eq "200") {
+      $user = Read-Json (Join-Path $tmp "user.json")
+      $groups = @($user.group_ids)
+      $keys = @($user.credentials_api3 | Where-Object { -not $_.is_disabled })
+      if ($groups.Count -gt 0) { Write-Output "  note  the API user is in $($groups.Count) group(s); the spec said none" }
+      if ($keys.Count -gt 1) { Write-Output "  note  the API user holds $($keys.Count) active API keys; the spec said one" }
+    } else {
+      Write-Output "  note  could not read the API user ($code)"
+    }
+
+    $code = Invoke-Api GET "/looks`?fields=id,folder_id" "looks.json"
+    if ($code -eq "200") {
+      $looks = @(Read-JsonArray (Join-Path $tmp "looks.json"))
+      if (-not $folder) {
+        $distinct = @($looks | Group-Object folder_id).Count
+        Write-Output "  note  $($looks.Count) Looks visible across $distinct folder(s)"
+      } else {
+        $elsewhere = $looks | Where-Object { "$($_.folder_id)" -ne "$folder" } | Group-Object folder_id | Sort-Object Name
+        if ($elsewhere) {
+          $where = ($elsewhere | ForEach-Object { "folder $($_.Name): $($_.Count)" }) -join ", "
+          Write-Output "  note  Looks visible outside folder $folder ($where)"
+        }
+      }
+    } else {
+      Write-Output "  note  could not list visible Looks ($code)"
+    }
+
+    $code = & curl.exe -q -s -S -m 30 -o NUL -w "%{http_code}" -X DELETE -K (Join-Path $tmp "curlrc") "$LookerHost/api/4.0/logout"
+    if ($LASTEXITCODE -ne 0 -or $code -notin @("200", "204")) {
+      Write-Output "  note  logout returned ${code}: this session's token stays valid until it expires"
+    }
+
+    Write-Output ""
+    if ($failed) {
+      Write-Output "FAIL  Do not store this key. It can do more than it was issued for."
+      Write-Output "      Ran when it should have been refused: $($ran -join ', ')."
+      Write-Output "      For Bitfocus: the role should carry access_data and see_looks only -"
+      Write-Output "      no explore, no use_sql_runner, no group inheritance."
+      $script:ScopeTestVerdict = 1; return
+    }
+    if ($unknown) {
+      Write-Output "INCONCLUSIVE  Nothing ran that should not have, but the test did not prove the"
+      Write-Output "      key is scoped. Do not store it yet. The ?? lines say what came back."
+      $script:ScopeTestVerdict = 2; return
+    }
+    Write-Output "PASS  The key runs its Look and is refused everything else."
+    $script:ScopeTestVerdict = 0; return
+
+  } finally {
+    Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+    if (Test-Path $tmp) {
+      Write-Output ""
+      Write-Output "COULD NOT CLEAN UP  $tmp still holds the login token. Delete it yourself."
+      $script:ScopeTestVerdict = 3; return
+    }
+  }
+}
+
+$ScopeTestVerdict = 0
+Invoke-ScopeTest

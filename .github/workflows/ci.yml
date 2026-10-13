@@ -133,3 +133,12 @@ jobs:
       - name: PowerShell 7, page for page against Python
         shell: pwsh
         run: node scripts/check-acceptance.mjs --runner py,pwsh
+      # And the copy meant to be pasted into a console rather than run as a file, for a machine
+      # whose Group Policy forbids script files. It is generated from the .ps1 and has to behave
+      # identically, so it is held to the same page as Python too.
+      - name: The pasteable copy, page for page against Python
+        shell: powershell
+        run: node scripts/check-acceptance.mjs --runner py,nofile
+      - name: The pasteable copy under PowerShell 7
+        shell: pwsh
+        run: node scripts/check-acceptance.mjs --runner py,nofile-pwsh
