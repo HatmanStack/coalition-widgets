@@ -41,7 +41,15 @@ const replace = (text, from, to) => {
   return text.split(from).join(to);
 };
 
-let ps1 = readFileSync(SOURCE, "utf8").replace(/^﻿/, "");
+/* Line endings normalised on the way in. A Windows checkout converts LF to CRLF, so matching on
+   LF found nothing there and the generator failed on the runner rather than on the machine it
+   was written on. .gitattributes pins these files to LF as well; this is the belt. */
+const read = (path) =>
+  readFileSync(path, "utf8")
+    .replace(/^\uFEFF/, "")
+    .replace(/\r\n/g, "\n");
+
+let ps1 = read(SOURCE);
 
 // Arguments do not survive a paste. Ask instead, with the same environment variables the scripts
 // already honour so the checker can drive it without a keyboard.
@@ -115,7 +123,7 @@ Invoke-ScopeTest
 `;
 
 if (process.argv.includes("--check")) {
-  const committed = readFileSync(TARGET, "utf8");
+  const committed = read(TARGET);
   if (committed !== snippet) {
     console.error(
       `  ${TARGET} is out of date with acceptance_windows.ps1.\n` +
