@@ -65,7 +65,12 @@ if ($LookerHost.EndsWith("/api/4.0")) { $LookerHost = $LookerHost.Substring(0, $
 
 $cid = $env:LOOKER_CLIENT_ID
 $sec = $env:LOOKER_CLIENT_SECRET
-if (-not $cid) { $cid = Read-Host "Client ID" }
+# Both hidden, like acceptance.py. This is read out on a shared screen, and half a credential
+# is still half a credential.
+if (-not $cid) {
+  $secureId = Read-Host "Client ID" -AsSecureString
+  $cid = [System.Net.NetworkCredential]::new("", $secureId).Password
+}
 if (-not $sec) {
   $secure = Read-Host "Client secret" -AsSecureString
   $sec = [System.Net.NetworkCredential]::new("", $secure).Password

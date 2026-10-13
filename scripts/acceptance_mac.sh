@@ -63,7 +63,9 @@ HOST="${HOST%/api/4.0}"
 
 CID="${LOOKER_CLIENT_ID:-}"
 SEC="${LOOKER_CLIENT_SECRET:-}"
-[ -n "$CID" ] || read -r -p "Client ID: " CID
+# Both hidden, like acceptance.py. This is read out on a shared screen, and half a credential
+# is still half a credential.
+[ -n "$CID" ] || { read -r -s -p "Client ID: " CID; echo; }
 [ -n "$SEC" ] || { read -r -s -p "Client secret: " SEC; echo; }
 
 # 0700, and everything sensitive lives in here rather than on a command line: /proc/<pid>/cmdline
