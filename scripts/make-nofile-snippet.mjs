@@ -80,10 +80,29 @@ if (-not $LookerHost -or -not $LookId) {
 /* `exit` in a console session closes the window, which would take the verdict off the screen at
    the moment it is read. Inside a function, `return` leaves the function and the console stays
    open; the verdict lands in a variable so a caller can still act on it. */
-ps1 = ps1.replace(
-  /^(\s*)exit ([0-3])$/gm,
-  "$1$script:ScopeTestVerdict = $2; return",
-);
+/* Except inside the finally block, where PowerShell refuses: "Flow of control cannot leave a
+   Finally block." `exit` was allowed there and `return` is not, so that one records the verdict
+   and lets the block end on its own. */
+let inFinally = false;
+let finallyExits = 0;
+ps1 = ps1
+  .split("\n")
+  .map((line) => {
+    if (line.startsWith("} finally {")) inFinally = true;
+    else if (inFinally && line === "}") inFinally = false;
+    const exit = line.match(/^(\s*)exit ([0-3])$/);
+    if (!exit) return line;
+    if (inFinally) {
+      finallyExits++;
+      return `${exit[1]}$script:ScopeTestVerdict = ${exit[2]}`;
+    }
+    return `${exit[1]}$script:ScopeTestVerdict = ${exit[2]}; return`;
+  })
+  .join("\n");
+if (finallyExits !== 1)
+  throw new Error(
+    `make-nofile-snippet: expected one exit inside the finally block, found ${finallyExits}`,
+  );
 // Code lines only: several comments discuss what an exit code means, and those stay.
 const survivor = ps1
   .split("\n")

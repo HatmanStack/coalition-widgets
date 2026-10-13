@@ -207,7 +207,7 @@ function Invoke-ScopeTest {
     if (Test-Path $tmp) {
       Write-Output ""
       Write-Output "COULD NOT CLEAN UP  $tmp still holds the login token. Delete it yourself."
-      $script:ScopeTestVerdict = 3; return
+      $script:ScopeTestVerdict = 3
     }
   }
 }
